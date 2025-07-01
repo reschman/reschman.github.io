@@ -1,4 +1,5 @@
-// Additional interactive effects for the teaser page
+//reschmann, 1.7.2025
+//io Demo Page  
 
 document.addEventListener('DOMContentLoaded', function() {
     const urlElement = document.querySelector('.animated-url');
