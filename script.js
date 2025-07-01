@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Start typing effect after a delay
     setTimeout(() => {
-        typeWriter(comingSoonElement, 'coming soon....', 150);
+        typeWriter(comingSoonElement, 'more to come....', 150);
     }, 1000);
     
     // Add parallax effect on mouse move
