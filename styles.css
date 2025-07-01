@@ -1,0 +1,190 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    overflow: hidden;
+}
+
+.container {
+    text-align: center;
+    max-width: 800px;
+    padding: 2rem;
+}
+
+.url-container {
+    margin-bottom: 3rem;
+}
+
+.animated-url {
+    font-size: 4rem;
+    font-weight: 300;
+    letter-spacing: 2px;
+    animation: float 3s ease-in-out infinite;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.line-container {
+    margin-bottom: 3rem;
+    height: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.moving-line {
+    height: 100%;
+    background: linear-gradient(90deg, transparent, white, transparent);
+    animation: moveLine 2s linear infinite;
+    width: 100%;
+}
+
+@keyframes moveLine {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.weather-container {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    animation: fadeIn 1s ease-in;
+}
+
+.water-temp-container {
+    margin-bottom: 3rem;
+    padding: 1.5rem;
+    background: rgba(0, 150, 255, 0.15);
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 150, 255, 0.3);
+    animation: fadeIn 1.2s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.weather-info, .water-temp-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.location, .water-location {
+    font-size: 1.2rem;
+    font-weight: 300;
+    opacity: 0.9;
+    letter-spacing: 1px;
+}
+
+.temperature, .water-temperature {
+    font-size: 2.5rem;
+    font-weight: 200;
+    margin: 0.5rem 0;
+    animation: temperatureGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes temperatureGlow {
+    from {
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    }
+    to {
+        text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+    }
+}
+
+.weather-description, .water-status {
+    font-size: 1rem;
+    opacity: 0.8;
+    font-weight: 300;
+    text-transform: capitalize;
+}
+
+.coming-soon-container {
+    margin-top: 2rem;
+}
+
+.coming-soon {
+    font-size: 1.5rem;
+    font-weight: 200;
+    letter-spacing: 3px;
+    animation: pulse 2s ease-in-out infinite;
+    opacity: 0.8;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.8;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .animated-url {
+        font-size: 2.5rem;
+    }
+    
+    .temperature, .water-temperature {
+        font-size: 2rem;
+    }
+    
+    .coming-soon {
+        font-size: 1.2rem;
+    }
+    
+    .container {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .animated-url {
+        font-size: 2rem;
+    }
+    
+    .temperature, .water-temperature {
+        font-size: 1.8rem;
+    }
+    
+    .coming-soon {
+        font-size: 1rem;
+    }
+} 
