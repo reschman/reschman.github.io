@@ -85,6 +85,17 @@ body {
     animation: fadeIn 1.2s ease-in;
 }
 
+.bath-last-update {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 300;
+    color: white;
+    margin-top: 0.5em;
+    text-align: center;
+    opacity: 0.8;
+    text-transform: capitalize;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -155,6 +166,8 @@ body {
         transform: scale(1.05);
     }
 }
+
+
 
 /* Responsive Design */
 @media (max-width: 768px) {

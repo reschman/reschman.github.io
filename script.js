@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlElement = document.querySelector('.animated-url');
     const comingSoonElement = document.querySelector('.coming-soon');
     
-    // Weather API functionality using Open-Meteo (free, no API key required)
+    // Weather API functionality using Open-Meteo 
     const ZURICH_LAT = 47.3769;
     const ZURICH_LON = 8.5417;
     
@@ -76,32 +76,47 @@ document.addEventListener('DOMContentLoaded', function() {
             if (targetBath) {
                 const waterTempElement = document.getElementById('water-temp-value');
                 const waterStatusElement = document.getElementById('water-status');
+                // Show last update time
+                let lastUpdateElement = document.getElementById('bath-last-update');
+                if (!lastUpdateElement) {
+                    lastUpdateElement = document.createElement('div');
+                    lastUpdateElement.id = 'bath-last-update';
+                    lastUpdateElement.className = 'bath-last-update';
+                    waterStatusElement.parentNode.appendChild(lastUpdateElement);
+                }
+                const dateModified = targetBath.querySelector('dateModified');
+                if (dateModified && dateModified.textContent) {
+                    // Correct time by adding 1 hour
+                    const date = new Date(dateModified.textContent.trim());
+                    date.setHours(date.getHours() + 1);
+                    const options = { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Zurich' };
+                    const formatted = date.toLocaleTimeString('de-CH', options);
+                    lastUpdateElement.textContent = `last update ${formatted}`;
+                } else {
+                    lastUpdateElement.textContent = '';
+                }
                 
                 // Extract water temperature
                 const waterTemp = targetBath.querySelector('temperatureWater');
                 if (waterTemp && waterTemp.textContent) {
                     const temp = parseFloat(waterTemp.textContent);
-                    //const temp = 2;
+                    //const temp = 25;
                     waterTempElement.textContent = temp.toFixed(1);
                     
                     // Add water temperature-based styling
                     const waterContainer = document.querySelector('.water-temp-container');
                     if (temp < 17) {
                         waterContainer.style.background = 'rgba(0, 100, 200, 0.2)'; // Cold water - blue
-                        waterStatusElement.textContent = 'Cold water';
                     } else if (temp >= 18 && temp <= 20) {
                         waterContainer.style.background = 'rgba(255, 255, 0, 0.2)'; // Yellow
-                        waterStatusElement.textContent = 'Moderate water';
-                    } else if (temp > 20 && temp <= 25) {
+                    } else if (temp > 20 && temp <= 24) {
                         waterContainer.style.background = 'rgba(255, 165, 0, 0.2)'; // Dark yellow
-                        waterStatusElement.textContent = 'Warm water';
-                    } else if (temp > 25) {
+                    } else if (temp > 24) {
                         waterContainer.style.background = 'rgba(255, 0, 0, 0.2)'; // Red
-                        waterStatusElement.textContent = 'Hot water';
                     } else {
                         waterContainer.style.background = 'rgba(0, 150, 255, 0.15)'; // Default
-                        waterStatusElement.textContent = 'Temperature unavailable';
                     }
+                    waterStatusElement.textContent = '';
                 } else {
                     waterTempElement.textContent = '--';
                     waterStatusElement.textContent = 'Temperature unavailable';
@@ -109,14 +124,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Extract opening status
                 const isOpen = targetBath.querySelector('openClosedTextPlain');
+                let status = '';
                 if (isOpen) {
-                    let status = isOpen.textContent.trim();
+                    status = isOpen.textContent.trim();
                     if (status === 'offen') {
                         status = 'open';
                     } else if (status === 'geschlossen') {
                         status = 'closed';
                     }
-                    waterStatusElement.textContent += ` • ${status}`;
+                    waterStatusElement.textContent = `${status}`;
+                } else {
+                    waterStatusElement.textContent = '';
                 }
                 
             } else {
