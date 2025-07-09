@@ -86,11 +86,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 const dateModified = targetBath.querySelector('dateModified');
                 if (dateModified && dateModified.textContent) {
-                    // Correct time by adding 1 hour
-                    const date = new Date(dateModified.textContent.trim());
-                    date.setHours(date.getHours() + 1);
-                    const options = { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Zurich' };
-                    const formatted = date.toLocaleTimeString('de-CH', options);
+                    // Extrahiere Uhrzeit (hh:mm) aus dem String, z.B. 'Mi, 09.07.2025 11:14'
+                    const match = dateModified.textContent.trim().match(/(\d{2}:\d{2})/);
+                    const formatted = match ? match[1] : '--';
                     lastUpdateElement.textContent = `last update ${formatted}`;
                 } else {
                     lastUpdateElement.textContent = '';
