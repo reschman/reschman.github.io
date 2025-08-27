@@ -17,6 +17,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const SECOND_BATH_ID = 'seb6943'; // Second bath to display
     const UPDATE_INTERVAL = 60 * 60 * 1000; // 1 hour
     
+    // FOEN hydrological monitoring data
+    const FOEN_BASE_URL = 'https://environment.ld.admin.ch/.well-known/void/dataset/hydro';
+    const LIMMAT_STATION_ID = '2099'; // Limmat - Zürich, Unterhard
+    const DISCHARGE_UPDATE_INTERVAL = 30 * 60 * 1000; // 30 minutes
+    
     async function getZurichWeather() {
         try {
             const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${ZURICH_LAT}&longitude=${ZURICH_LON}&current=temperature_2m,weather_code&timezone=auto`);
@@ -105,6 +110,70 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('water-status').textContent = 'Data unavailable';
             document.getElementById('water-temp-value-2').textContent = '--';
             document.getElementById('water-status-2').textContent = 'Data unavailable';
+        }
+    }
+    
+    async function getDischargeData() {
+        try {
+            const STATION_PAGE = 'https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099';
+            const READER_URL = 'https://r.jina.ai/https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099';
+
+            const resp = await fetch(READER_URL, { headers: { 'Accept': 'text/plain, text/html;q=0.9, */*;q=0.8' } });
+            if (!resp.ok) throw new Error('Reader fetch not OK: ' + resp.status);
+            const text = await resp.text();
+
+            // Narrow to the Abfluss section if possible
+            let section = text;
+            const abflussIdx = text.indexOf('Abfluss m³/s');
+            if (abflussIdx !== -1) {
+                section = text.slice(abflussIdx, abflussIdx + 4000); // slice a window after the header
+            }
+
+            // Prefer exact table row parsing: take first numeric cell after label
+            let discharge = undefined;
+            const lines = section.split('\n');
+            const rowLine = lines.find(l => l.includes('Letzter Messwert') && l.includes('|'));
+            if (rowLine) {
+                const cells = rowLine.split('|').map(s => s.trim()).filter(s => s.length > 0);
+                // Expected: [ 'Letzter Messwert ...', '82', '400.24', ... ]
+                if (cells.length >= 2) {
+                    const candidate = cells[1].replace(',', '.');
+                    if (!Number.isNaN(Number(candidate))) {
+                        discharge = candidate;
+                    }
+                }
+            }
+
+            // Fallback: regex from markdown-like row
+            if (!discharge) {
+                const rowRegex = /Letzter\s+Messwert[^\n]*\|\s*(\d+(?:[\.,]\d+)?)\s*\|/i;
+                const rowMatch = section.match(rowRegex);
+                if (rowMatch) {
+                    discharge = rowMatch[1].replace(',', '.');
+                }
+            }
+
+            // Fallback: look for a standalone pattern near "Letzter Messwert" and numbers
+            if (!discharge) {
+                const fallbackRegex = /Letzter\s+Messwert[^\n]*\n[^\n]*?(\d+(?:[\.,]\d+)?)(?=\s*(m³\/s|m³\s*\/\s*s|\|))/i;
+                const m2 = section.match(fallbackRegex);
+                if (m2) discharge = m2[1].replace(',', '.');
+            }
+
+            const dischargeValue = document.getElementById('discharge-value');
+            const dischargeStatus = document.getElementById('discharge-status');
+
+            if (discharge !== undefined && discharge !== null && !Number.isNaN(Number(discharge))) {
+                dischargeValue.textContent = Number(discharge).toFixed(0);
+                dischargeStatus.textContent = '';
+            } else {
+                dischargeValue.textContent = '--';
+                dischargeStatus.innerHTML = `No data parsed <a href="${STATION_PAGE}" target="_blank" rel="noopener">source</a>`;
+            }
+        } catch (error) {
+            console.error('Error fetching discharge data:', error);
+            document.getElementById('discharge-value').textContent = '--';
+            document.getElementById('discharge-status').textContent = 'Data unavailable';
         }
     }
     
@@ -224,6 +293,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fetch bath data immediately and then every hour
     getBathData();
     setInterval(getBathData, UPDATE_INTERVAL);
+    
+    // Fetch discharge data immediately and then every 30 minutes
+    getDischargeData();
+    setInterval(getDischargeData, DISCHARGE_UPDATE_INTERVAL);
     
     // Add mouse hover effect to the URL
     urlElement.addEventListener('mouseenter', function() {
