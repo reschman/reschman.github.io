@@ -9,14 +9,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const ZURICH_LAT = 47.3769;
     const ZURICH_LON = 8.5417;
     
-    // Zurich bath data API with CORS proxy
-    const BATH_DATA_URL = 'https://www.stadt-zuerich.ch/stzh/bathdatadownload';
-    // fromURL: https://data.stadt-zuerich.ch/dataset/wassertemperaturen-freibaeder/resource/548d1ceb-1daf-4cf9-a14a-92c86326824d
-    const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
-    const TARGET_BATH_ID = 'flb6940'; // Flussbad Unterer Letten
-    const SECOND_BATH_ID = 'seb6943'; // Second bath to display
-    const UPDATE_INTERVAL = 60 * 60 * 1000; // 1 hour
-    
     // FOEN hydrological monitoring data
     const FOEN_BASE_URL = 'https://environment.ld.admin.ch/.well-known/void/dataset/hydro';
     const LIMMAT_STATION_ID = '2099'; // Limmat - Zürich, Unterhard
@@ -56,63 +48,49 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    async function getBathData() {
-        try {
-            // Use CORS proxy to bypass cross-origin restriction
-            const proxyUrl = CORS_PROXY + encodeURIComponent(BATH_DATA_URL);
-            const response = await fetch(proxyUrl);
-            const xmlText = await response.text();
-            
-            // Parse XML to find the target bath data
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
-            
-            // Process both baths
-            const baths = xmlDoc.querySelectorAll('bath');
-            
-            // Process first bath (flb6940)
-            let targetBath = null;
-            for (let bath of baths) {
-                const idElement = bath.querySelector('poiid');
-                if (idElement && idElement.textContent === TARGET_BATH_ID) {
-                    targetBath = bath;
-                    break;
-                }
-            }
-            
-            if (targetBath) {
-                updateBathDisplay(targetBath, 'water-temp-value', 'water-status', 'bath-last-update', '.water-temp-container');
-            } else {
-                document.getElementById('water-temp-value').textContent = '--';
-                document.getElementById('water-status').textContent = 'Bath data unavailable';
-            }
-            
-            // Process second bath (seb6943)
-            let secondBath = null;
-            for (let bath of baths) {
-                const idElement = bath.querySelector('poiid');
-                if (idElement && idElement.textContent === SECOND_BATH_ID) {
-                    secondBath = bath;
-                    break;
-                }
-            }
-            
-            if (secondBath) {
-                updateBathDisplay(secondBath, 'water-temp-value-2', 'water-status-2', 'bath-last-update-2', '.water-temp-container_2');
-            } else {
-                document.getElementById('water-temp-value-2').textContent = '--';
-                document.getElementById('water-status-2').textContent = 'Bath data unavailable';
-            }
-            
-        } catch (error) {
-            console.error('Error fetching bath data:', error);
-            document.getElementById('water-temp-value').textContent = '--';
-            document.getElementById('water-status').textContent = 'Data unavailable';
-            document.getElementById('water-temp-value-2').textContent = '--';
-            document.getElementById('water-status-2').textContent = 'Data unavailable';
-        }
+    function extractDischargeTimestamp(labelText) {
+        if (!labelText) return null;
+        const match = labelText.match(/(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})/);
+        return match ? match[1] : null;
     }
-    
+
+    function getDischargeTrend(currentValue, currentTimestamp) {
+        const STORAGE_KEY = 'limmat-discharge-last';
+        const previousRaw = localStorage.getItem(STORAGE_KEY);
+        let trendText = 'Trend: noch keine Vergleichsdaten';
+
+        if (previousRaw) {
+            try {
+                const previous = JSON.parse(previousRaw);
+                const previousValue = Number(previous.value);
+
+                if (!Number.isNaN(previousValue) && previous.timestamp !== currentTimestamp) {
+                    const delta = currentValue - previousValue;
+                    const absDelta = Math.abs(delta);
+
+                    if (absDelta < 0.1) {
+                        trendText = 'Trend: konstant';
+                    } else if (delta > 0) {
+                        trendText = `Trend: steigend (+${delta.toFixed(1)} m3/s)`;
+                    } else {
+                        trendText = `Trend: sinkend (${delta.toFixed(1)} m3/s)`;
+                    }
+                } else if (previous.timestamp === currentTimestamp) {
+                    trendText = 'Trend: unveraenderter Messzeitpunkt';
+                }
+            } catch (error) {
+                console.warn('Could not parse previous discharge trend data:', error);
+            }
+        }
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            value: currentValue,
+            timestamp: currentTimestamp || null
+        }));
+
+        return trendText;
+    }
+
     async function getDischargeData() {
         try {
             const STATION_PAGE = 'https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099';
@@ -131,12 +109,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Prefer exact table row parsing: take first numeric cell after label
             let discharge = undefined;
+            let dischargeTimestamp = null;
             const lines = section.split('\n');
             const rowLine = lines.find(l => l.includes('Letzter Messwert') && l.includes('|'));
             if (rowLine) {
                 const cells = rowLine.split('|').map(s => s.trim()).filter(s => s.length > 0);
                 // Expected: [ 'Letzter Messwert ...', '82', '400.24', ... ]
                 if (cells.length >= 2) {
+                    dischargeTimestamp = extractDischargeTimestamp(cells[0]);
                     const candidate = cells[1].replace(',', '.');
                     if (!Number.isNaN(Number(candidate))) {
                         discharge = candidate;
@@ -164,8 +144,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const dischargeStatus = document.getElementById('discharge-status');
 
             if (discharge !== undefined && discharge !== null && !Number.isNaN(Number(discharge))) {
-                dischargeValue.textContent = Number(discharge).toFixed(0);
-                dischargeStatus.textContent = '';
+                const dischargeNumber = Number(discharge);
+                dischargeValue.textContent = dischargeNumber.toFixed(0);
+                dischargeStatus.textContent = getDischargeTrend(dischargeNumber, dischargeTimestamp);
             } else {
                 dischargeValue.textContent = '--';
                 dischargeStatus.innerHTML = `No data parsed <a href="${STATION_PAGE}" target="_blank" rel="noopener">source</a>`;
@@ -174,79 +155,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error fetching discharge data:', error);
             document.getElementById('discharge-value').textContent = '--';
             document.getElementById('discharge-status').textContent = 'Data unavailable';
-        }
-    }
-    
-    function updateBathDisplay(bath, tempElementId, statusElementId, lastUpdateId, containerSelector) {
-        const waterTempElement = document.getElementById(tempElementId);
-        const waterStatusElement = document.getElementById(statusElementId);
-        
-        // Extract and update bath name
-        const bathName = bath.querySelector('name');
-        if (bathName && bathName.textContent) {
-            const locationElement = document.querySelector(containerSelector + ' .water-location');
-            if (locationElement) {
-                locationElement.textContent = bathName.textContent.trim();
-            }
-        }
-        
-        // Show last update time
-        let lastUpdateElement = document.getElementById(lastUpdateId);
-        if (!lastUpdateElement) {
-            lastUpdateElement = document.createElement('div');
-            lastUpdateElement.id = lastUpdateId;
-            lastUpdateElement.className = 'bath-last-update';
-            waterStatusElement.parentNode.appendChild(lastUpdateElement);
-        }
-        
-        const dateModified = bath.querySelector('dateModified');
-        if (dateModified && dateModified.textContent) {
-            // Extrahiere Uhrzeit (hh:mm) aus dem String, z.B. 'Mi, 09.07.2025 11:14'
-            const match = dateModified.textContent.trim().match(/(\d{2}:\d{2})/);
-            const formatted = match ? match[1] : '--';
-            lastUpdateElement.textContent = `last update ${formatted}`;
-        } else {
-            lastUpdateElement.textContent = '';
-        }
-        
-        // Extract water temperature
-        const waterTemp = bath.querySelector('temperatureWater');
-        if (waterTemp && waterTemp.textContent) {
-            const temp = parseFloat(waterTemp.textContent);
-            waterTempElement.textContent = temp.toFixed(1);
-            
-            // Add water temperature-based styling
-            const waterContainer = document.querySelector(containerSelector);
-            if (temp < 17) {
-                waterContainer.style.background = 'rgba(0, 100, 200, 0.2)'; // Cold water - blue
-            } else if (temp >= 18 && temp <= 20) {
-                waterContainer.style.background = 'rgba(255, 255, 0, 0.2)'; // Yellow
-            } else if (temp > 20 && temp <= 24) {
-                waterContainer.style.background = 'rgba(255, 165, 0, 0.2)'; // Dark yellow
-            } else if (temp > 24) {
-                waterContainer.style.background = 'rgba(255, 0, 0, 0.2)'; // Red
-            } else {
-                waterContainer.style.background = 'rgba(0, 150, 255, 0.15)'; // Default
-            }
-            waterStatusElement.textContent = '';
-        } else {
-            waterTempElement.textContent = '--';
-            waterStatusElement.textContent = 'Temperature unavailable';
-        }
-        
-        // Extract opening status
-        const isOpen = bath.querySelector('openClosedTextPlain');
-        let status = '';
-        if (isOpen) {
-            status = isOpen.textContent.trim();
-            if (status === 'offen') {
-                status = 'open';
-            } else if (status === 'geschlossen') {
-                status = 'closed';
-            }
-            waterStatusElement.textContent = `${status}`;
-        } else {
-            waterStatusElement.textContent = '';
         }
     }
     
@@ -289,10 +197,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fetch weather data immediately and then every 30 minutes
     getZurichWeather();
     setInterval(getZurichWeather, 30 * 60 * 1000);
-    
-    // Fetch bath data immediately and then every hour
-    getBathData();
-    setInterval(getBathData, UPDATE_INTERVAL);
     
     // Fetch discharge data immediately and then every 30 minutes
     getDischargeData();
