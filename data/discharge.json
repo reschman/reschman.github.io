@@ -4,8 +4,8 @@
   "discharge_m3s": 23.0,
   "source_timestamp": "02.11.2026 22:50",
   "previous_discharge_m3s": 23.0,
-  "delta_m3s": 1.0,
+  "delta_m3s": 0.0,
   "trend": "steady",
-  "fetched_at_utc": "2026-11-02T22:04:33Z",
+  "fetched_at_utc": "2026-11-02T22:07:02Z",
   "source_url": "https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099"
 }
