@@ -1,0 +1,120 @@
+name: Update discharge data
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-discharge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch station page and update JSON
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          curl -fsSL "https://r.jina.ai/https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099" -o /tmp/station_2099.txt
+
+          python3 - <<'PY'
+          import datetime
+          import json
+          import os
+          import re
+
+          DATA_PATH = "data/discharge.json"
+          SOURCE_PATH = "/tmp/station_2099.txt"
+
+          previous = {}
+          if os.path.exists(DATA_PATH):
+              try:
+                  with open(DATA_PATH, "r", encoding="utf-8") as f:
+                      previous = json.load(f)
+              except Exception:
+                  previous = {}
+
+          with open(SOURCE_PATH, "r", encoding="utf-8") as f:
+              text = f.read()
+
+          section_start = text.find("Abfluss und Wasserstand")
+          section = text[section_start:] if section_start != -1 else text
+
+          row_line = None
+          for line in section.splitlines():
+              if "Letzter Messwert" in line and "|" in line:
+                  row_line = line
+                  break
+
+          discharge_value = None
+          source_timestamp = None
+
+          if row_line:
+              cells = [c.strip() for c in row_line.split("|") if c.strip()]
+              if len(cells) >= 2:
+                  ts_match = re.search(r"(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})", cells[0])
+                  source_timestamp = ts_match.group(1) if ts_match else None
+                  candidate = cells[1].replace(",", ".")
+                  discharge_value = float(candidate)
+
+          if discharge_value is None:
+              match = re.search(r"Letzter\s+Messwert[^\n]*\|\s*(\d+(?:[\.,]\d+)?)\s*\|", section, re.IGNORECASE)
+              if not match:
+                  raise RuntimeError("Could not parse discharge value from station content")
+              discharge_value = float(match.group(1).replace(",", "."))
+
+          previous_value = previous.get("discharge_m3s")
+          previous_timestamp = previous.get("source_timestamp")
+
+          trend = "unknown"
+          delta = None
+
+          if isinstance(previous_value, (int, float)):
+              delta = round(discharge_value - float(previous_value), 1)
+
+              if previous_timestamp and source_timestamp and previous_timestamp == source_timestamp:
+                  trend = previous.get("trend", "unknown")
+              else:
+                  if abs(delta) < 0.1:
+                      trend = "steady"
+                  elif delta > 0:
+                      trend = "rising"
+                  else:
+                      trend = "falling"
+
+          output = {
+              "station_id": "2099",
+              "station_name": "Limmat - Zurich, Unterhard",
+              "discharge_m3s": round(discharge_value, 1),
+              "source_timestamp": source_timestamp,
+              "previous_discharge_m3s": previous_value if isinstance(previous_value, (int, float)) else None,
+              "delta_m3s": delta,
+              "trend": trend,
+              "fetched_at_utc": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+              "source_url": "https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099"
+          }
+
+          with open(DATA_PATH, "w", encoding="utf-8") as f:
+              json.dump(output, f, ensure_ascii=True, indent=2)
+              f.write("\n")
+
+          print(json.dumps(output, ensure_ascii=True))
+          PY
+
+      - name: Commit and push if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- data/discharge.json; then
+            echo "No data changes to commit"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/discharge.json
+          git commit -m "chore: update discharge data"
+          git push
