@@ -67,6 +67,27 @@ document.addEventListener('DOMContentLoaded', function() {
         return 'Trend: noch keine Vergleichsdaten';
     }
 
+    function updateTrendArrow(trend) {
+        const trendArrow = document.getElementById('trend-arrow');
+        if (!trendArrow) return;
+
+        switch(trend) {
+            case 'rising':
+                trendArrow.textContent = '↑';
+                trendArrow.style.color = '#1e3a8a';
+                break;
+            case 'falling':
+                trendArrow.textContent = '↓';
+                trendArrow.style.color = '#1e3a8a';
+                break;
+            case 'steady':
+            default:
+                trendArrow.textContent = '→';
+                trendArrow.style.color = '#1e3a8a';
+                break;
+        }
+    }
+
     async function getDischargeData() {
         try {
             const STATION_PAGE = 'https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099';
@@ -83,14 +104,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 const trendText = formatDischargeTrend(data.trend, data.delta_m3s);
                 const timeText = data.source_timestamp ? ` | Messzeit: ${data.source_timestamp}` : '';
                 dischargeStatus.textContent = trendText + timeText;
+                updateTrendArrow(data.trend);
             } else {
                 dischargeValue.textContent = '--';
                 dischargeStatus.innerHTML = `No data parsed <a href="${STATION_PAGE}" target="_blank" rel="noopener">source</a>`;
+                updateTrendArrow('unknown');
             }
         } catch (error) {
             console.error('Error fetching discharge data:', error);
             document.getElementById('discharge-value').textContent = '--';
             document.getElementById('discharge-status').textContent = 'Data unavailable';
+            updateTrendArrow('unknown');
         }
     }
     

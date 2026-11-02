@@ -87,15 +87,13 @@ jobs:
           if isinstance(previous_value, (int, float)):
               delta = round(discharge_value - float(previous_value), 1)
 
-              if previous_timestamp and source_timestamp and previous_timestamp == source_timestamp:
-                  trend = previous.get("trend", "unknown")
+              # Always calculate trend based on delta (not based on timestamp equality)
+              if abs(delta) < 0.1:
+                  trend = "steady"
+              elif delta > 0:
+                  trend = "rising"
               else:
-                  if abs(delta) < 0.1:
-                      trend = "steady"
-                  elif delta > 0:
-                      trend = "rising"
-                  else:
-                      trend = "falling"
+                  trend = "falling"
 
           output = {
               "station_id": "2099",
