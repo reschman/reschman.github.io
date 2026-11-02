@@ -19,7 +19,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p data
-          curl -fsSL "https://r.jina.ai/https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099" -o /tmp/station_2099.txt
+          curl -fsSL \
+            -H "Cache-Control: no-cache" \
+            -H "Pragma: no-cache" \
+            "https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099" \
+            -o /tmp/station_2099.html
 
           python3 - <<'PY'
           import datetime
@@ -28,7 +32,7 @@ jobs:
           import re
 
           DATA_PATH = "data/discharge.json"
-          SOURCE_PATH = "/tmp/station_2099.txt"
+          SOURCE_PATH = "/tmp/station_2099.html"
 
           previous = {}
           if os.path.exists(DATA_PATH):
@@ -41,31 +45,38 @@ jobs:
           with open(SOURCE_PATH, "r", encoding="utf-8") as f:
               text = f.read()
 
-          section_start = text.find("Abfluss und Wasserstand")
-          section = text[section_start:] if section_start != -1 else text
-
-          row_line = None
-          for line in section.splitlines():
-              if "Letzter Messwert" in line and "|" in line:
-                  row_line = line
-                  break
-
           discharge_value = None
           source_timestamp = None
 
-          if row_line:
-              cells = [c.strip() for c in row_line.split("|") if c.strip()]
-              if len(cells) >= 2:
-                  ts_match = re.search(r"(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})", cells[0])
-                  source_timestamp = ts_match.group(1) if ts_match else None
-                  candidate = cells[1].replace(",", ".")
-                  discharge_value = float(candidate)
+              # Parse direct station HTML table row:
+              # <div>Letzter Messwert</div><div class="opacity-75">02.11.2026 21:40</div> ... <td><div>23</div>
+            html_row_regex = re.compile(
+                r"<div>\s*Letzter\s+Messwert\s*</div>\s*"
+                r"<div[^>]*>\s*(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})\s*</div>\s*"
+                r"</td>\s*<td[^>]*>\s*<div>\s*(\d+(?:[\.,]\d+)?)\s*</div>",
+              re.IGNORECASE | re.DOTALL,
+            )
+            html_match = html_row_regex.search(text)
 
-          if discharge_value is None:
-              match = re.search(r"Letzter\s+Messwert[^\n]*\|\s*(\d+(?:[\.,]\d+)?)\s*\|", section, re.IGNORECASE)
-              if not match:
-                  raise RuntimeError("Could not parse discharge value from station content")
-              discharge_value = float(match.group(1).replace(",", "."))
+            if html_match:
+              source_timestamp = html_match.group(1)
+              discharge_value = float(html_match.group(2).replace(",", "."))
+
+            # Fallback for markdown/text mirrors if HTML structure changes.
+            if discharge_value is None:
+              text_match = re.search(
+                r"Letzter\s+Messwert[^\n]*\|\s*(\d+(?:[\.,]\d+)?)\s*\|",
+                text,
+                re.IGNORECASE,
+              )
+              ts_match = re.search(r"Letzter\s+Messwert\s*(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})", text, re.IGNORECASE)
+              if text_match:
+                discharge_value = float(text_match.group(1).replace(",", "."))
+              if ts_match:
+                source_timestamp = ts_match.group(1)
+
+            if discharge_value is None:
+              raise RuntimeError("Could not parse discharge value from station content")
 
           previous_value = previous.get("discharge_m3s")
           previous_timestamp = previous.get("source_timestamp")
