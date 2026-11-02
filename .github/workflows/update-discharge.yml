@@ -48,34 +48,34 @@ jobs:
           discharge_value = None
           source_timestamp = None
 
-              # Parse direct station HTML table row:
-              # <div>Letzter Messwert</div><div class="opacity-75">02.11.2026 21:40</div> ... <td><div>23</div>
-            html_row_regex = re.compile(
-                r"<div>\s*Letzter\s+Messwert\s*</div>\s*"
-                r"<div[^>]*>\s*(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})\s*</div>\s*"
-                r"</td>\s*<td[^>]*>\s*<div>\s*(\d+(?:[\.,]\d+)?)\s*</div>",
+          # Parse direct station HTML table row:
+          # <div>Letzter Messwert</div><div class="opacity-75">02.11.2026 21:40</div> ... <td><div>23</div>
+          html_row_regex = re.compile(
+              r"<div>\s*Letzter\s+Messwert\s*</div>\s*"
+              r"<div[^>]*>\s*(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})\s*</div>\s*"
+              r"</td>\s*<td[^>]*>\s*<div>\s*(\d+(?:[\.,]\d+)?)\s*</div>",
               re.IGNORECASE | re.DOTALL,
-            )
-            html_match = html_row_regex.search(text)
+          )
+          html_match = html_row_regex.search(text)
 
-            if html_match:
+          if html_match:
               source_timestamp = html_match.group(1)
               discharge_value = float(html_match.group(2).replace(",", "."))
 
-            # Fallback for markdown/text mirrors if HTML structure changes.
-            if discharge_value is None:
+          # Fallback for markdown/text mirrors if HTML structure changes.
+          if discharge_value is None:
               text_match = re.search(
-                r"Letzter\s+Messwert[^\n]*\|\s*(\d+(?:[\.,]\d+)?)\s*\|",
-                text,
-                re.IGNORECASE,
+                  r"Letzter\s+Messwert[^\n]*\|\s*(\d+(?:[\.,]\d+)?)\s*\|",
+                  text,
+                  re.IGNORECASE,
               )
               ts_match = re.search(r"Letzter\s+Messwert\s*(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})", text, re.IGNORECASE)
               if text_match:
-                discharge_value = float(text_match.group(1).replace(",", "."))
+                  discharge_value = float(text_match.group(1).replace(",", "."))
               if ts_match:
-                source_timestamp = ts_match.group(1)
+                  source_timestamp = ts_match.group(1)
 
-            if discharge_value is None:
+          if discharge_value is None:
               raise RuntimeError("Could not parse discharge value from station content")
 
           previous_value = previous.get("discharge_m3s")
