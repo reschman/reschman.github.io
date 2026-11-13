@@ -1,11 +1,11 @@
 {
   "station_id": "2099",
   "station_name": "Limmat - Zurich, Unterhard",
-  "discharge_m3s": 26.0,
-  "source_timestamp": "13.11.2026 02:20",
+  "discharge_m3s": 27.0,
+  "source_timestamp": "13.11.2026 03:00",
   "previous_discharge_m3s": 26.0,
-  "delta_m3s": 0.0,
-  "trend": "steady",
-  "fetched_at_utc": "2026-11-13T01:37:57Z",
+  "delta_m3s": 1.0,
+  "trend": "rising",
+  "fetched_at_utc": "2026-11-13T02:12:29Z",
   "source_url": "https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099"
 }
