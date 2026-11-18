@@ -1,11 +1,6 @@
 //reschmann, 1.7.2025-
 //io Demo Page  
 
-// Set PDF.js worker source
-if (typeof pdfjsLib !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-}
-
 document.addEventListener('DOMContentLoaded', function() {
     const urlElement = document.querySelector('.animated-url');
     const comingSoonElement = document.querySelector('.coming-soon');
@@ -173,34 +168,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const menuContainer = document.getElementById('menu-pdf-container');
             if (!menuContainer) return;
             
-            menuContainer.innerHTML = '<p class="menu-loading">Menü wird analysiert...</p>';
+            menuContainer.innerHTML = '<p class="menu-loading">Menü wird geladen...</p>';
             
-            const pdfUrl = 'data/menus/menu-current.pdf?t=' + Date.now();
-            
-            // Load PDF and extract text
-            const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
-            const page = await pdf.getPage(1);
-            const textContent = await page.getTextContent();
-            
-            const text = textContent.items.map(item => item.str).join(' ');
-            
-            // DEBUG: Log extracted text
-            console.log('=== EXTRACTED PDF TEXT ===');
-            console.log(text);
-            console.log('=== END TEXT ===');
-            
-            // Parse menu and show today/tomorrow
-            const menuData = parseMenuFromText(text);
-            console.log('=== PARSED MENU DATA ===');
-            console.log('Today:', menuData.today);
-            console.log('Tomorrow:', menuData.tomorrow);
-            console.log('Menus:', menuData.menus);
-            if (menuData.menus[menuData.today]) {
-                console.log('Today menu items:', menuData.menus[menuData.today]);
+            // Load menu JSON
+            const response = await fetch('data/menus/menu.json?t=' + Date.now());
+            if (!response.ok) {
+                throw new Error('Menu JSON not found');
             }
-            if (menuData.menus[menuData.tomorrow]) {
-                console.log('Tomorrow menu items:', menuData.menus[menuData.tomorrow]);
-            }
+            
+            const menuData = await response.json();
+            console.log('Menu data loaded:', menuData);
             
             displayMenu(menuContainer, menuData);
         } catch (error) {
@@ -212,102 +189,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function parseMenuFromText(text) {
-        // Days in German
-        const days = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
+    function displayMenu(container, menuData) {
         const today = new Date();
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
         
-        // Get day index (0=Sunday, 1=Monday...)
-        let todayIndex = today.getDay() - 1; // Convert to 0-4 for Mon-Fri
+        // Days array
+        const days = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
+        
+        // Get today and tomorrow day names
+        let todayIndex = today.getDay() - 1; // 0=Monday
         let tomorrowIndex = tomorrow.getDay() - 1;
         
         // Handle weekends
-        if (todayIndex < 0 || todayIndex > 4) {
-            todayIndex = 0; // Default to Monday
-        }
-        if (tomorrowIndex < 0 || tomorrowIndex > 4) {
-            tomorrowIndex = 0; // Default to Monday
-        }
+        if (todayIndex < 0 || todayIndex > 4) todayIndex = 0;
+        if (tomorrowIndex < 0 || tomorrowIndex > 4) tomorrowIndex = 0;
         
         const todayName = days[todayIndex];
         const tomorrowName = days[tomorrowIndex];
         
-        const result = {
-            today: todayName,
-            tomorrow: tomorrowName,
-            menus: {}
-        };
-        
-        // Extract menu section: from first day name to "Rohkost" or "Pasta Day"
-        let menuStart = text.length;
-        for (const day of days) {
-            const idx = text.indexOf(day);
-            if (idx !== -1 && idx < menuStart) {
-                menuStart = idx;
-            }
-        }
-        
-        let menuEnd = text.indexOf('Rohkost', menuStart);
-        if (menuEnd === -1) menuEnd = text.length;
-        
-        // Get the menu text
-        const menuText = text.substring(menuStart, menuEnd).trim();
-        console.log('Full menu text:', menuText);
-        
-        // Extract all menu items (words that aren't day names)
-        const allItems = menuText
-            .split(/[\s]+/) // Split by whitespace
-            .filter(item => 
-                item.length > 1 &&
-                !days.includes(item) &&
-                item !== 'Rohkost' &&
-                item !== 'Blattsalat' &&
-                item !== 'Salatbuffet' &&
-                !item.includes('Komponenten') &&
-                !item.includes('Allergene')
-            );
-        
-        console.log('All items found:', allItems.length, allItems);
-        
-        // Try to split items into 5 groups (one per day)
-        // Calculate items per day (assume equal distribution)
-        const itemsPerDay = Math.ceil(allItems.length / 5);
-        console.log('Items per day:', itemsPerDay);
-        
-        for (let i = 0; i < days.length; i++) {
-            const dayName = days[i];
-            const start = i * itemsPerDay;
-            const end = Math.min(start + itemsPerDay, allItems.length);
-            
-            // Take only substantial items (not "mit", "und", "oder")
-            const dayItems = allItems
-                .slice(start, end)
-                .filter(item => 
-                    item.toLowerCase() !== 'mit' &&
-                    item.toLowerCase() !== 'und' &&
-                    item.toLowerCase() !== 'oder' &&
-                    item.length > 2
-                )
-                .slice(0, 3); // Take max 3 items per day
-            
-            console.log(`${dayName}: ${dayItems.join(', ')}`);
-            result.menus[dayName] = dayItems;
-        }
-        
-        return result;
-    }
-    
-    function displayMenu(container, menuData) {
-        const todayMenu = menuData.menus[menuData.today] || [];
-        const tomorrowMenu = menuData.menus[menuData.tomorrow] || [];
+        const todayMenu = menuData.menu[todayName] || [];
+        const tomorrowMenu = menuData.menu[tomorrowName] || [];
         
         let html = '<div class="menu-days">';
         
         // Today
         html += `<div class="menu-day">
-            <h3>Heute (${menuData.today})</h3>
+            <h3>Heute (${todayName})</h3>
             <ul class="menu-items">`;
         
         if (todayMenu.length > 0) {
@@ -323,7 +231,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Tomorrow
         html += `<div class="menu-day">
-            <h3>Morgen (${menuData.tomorrow})</h3>
+            <h3>Morgen (${tomorrowName})</h3>
             <ul class="menu-items">`;
         
         if (tomorrowMenu.length > 0) {
