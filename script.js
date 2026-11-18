@@ -234,64 +234,66 @@ document.addEventListener('DOMContentLoaded', function() {
         const todayName = days[todayIndex];
         const tomorrowName = days[tomorrowIndex];
         
-        // Split text by "Rohkost" to separate menu section from rest
-        const sections = text.split('Rohkost')[0]; // Get only the menu part
-        
         const result = {
             today: todayName,
             tomorrow: tomorrowName,
             menus: {}
         };
         
-        // For each day, find its position and extract menu until next day or Rohkost
+        // Extract menu section: from first day name to "Rohkost" or "Pasta Day"
+        let menuStart = text.length;
+        for (const day of days) {
+            const idx = text.indexOf(day);
+            if (idx !== -1 && idx < menuStart) {
+                menuStart = idx;
+            }
+        }
+        
+        let menuEnd = text.indexOf('Rohkost', menuStart);
+        if (menuEnd === -1) menuEnd = text.length;
+        
+        // Get the menu text
+        const menuText = text.substring(menuStart, menuEnd).trim();
+        console.log('Full menu text:', menuText);
+        
+        // Extract all menu items (words that aren't day names)
+        const allItems = menuText
+            .split(/[\s]+/) // Split by whitespace
+            .filter(item => 
+                item.length > 1 &&
+                !days.includes(item) &&
+                item !== 'Rohkost' &&
+                item !== 'Blattsalat' &&
+                item !== 'Salatbuffet' &&
+                !item.includes('Komponenten') &&
+                !item.includes('Allergene')
+            );
+        
+        console.log('All items found:', allItems.length, allItems);
+        
+        // Try to split items into 5 groups (one per day)
+        // Calculate items per day (assume equal distribution)
+        const itemsPerDay = Math.ceil(allItems.length / 5);
+        console.log('Items per day:', itemsPerDay);
+        
         for (let i = 0; i < days.length; i++) {
             const dayName = days[i];
-            const dayIndex = text.indexOf(dayName);
+            const start = i * itemsPerDay;
+            const end = Math.min(start + itemsPerDay, allItems.length);
             
-            if (dayIndex === -1) continue;
-            
-            // Find next day or "Rohkost"
-            let endIndex = text.length;
-            
-            // Find next day
-            for (let j = i + 1; j < days.length; j++) {
-                const nextDayIdx = text.indexOf(days[j], dayIndex + dayName.length);
-                if (nextDayIdx !== -1 && nextDayIdx < endIndex) {
-                    endIndex = nextDayIdx;
-                }
-            }
-            
-            // Find "Rohkost"
-            const rohkostIdx = text.indexOf('Rohkost', dayIndex + dayName.length);
-            if (rohkostIdx !== -1 && rohkostIdx < endIndex) {
-                endIndex = rohkostIdx;
-            }
-            
-            // Extract menu text for this day
-            const menuText = text.substring(dayIndex + dayName.length, endIndex).trim();
-            console.log(`${dayName} raw text:`, menuText);
-            
-            // Split by common separators and filter
-            const items = menuText
-                .split(/[\s]{2,}/) // Split by multiple spaces
-                .map(item => item.trim())
+            // Take only substantial items (not "mit", "und", "oder")
+            const dayItems = allItems
+                .slice(start, end)
                 .filter(item => 
-                    item.length > 0 &&
-                    !days.includes(item) &&
-                    item !== 'Rohkost' &&
-                    item !== 'Blattsalat' &&
-                    item !== 'Salatbuffet' &&
-                    !item.includes('Komponenten') &&
-                    !item.includes('Allergene') &&
-                    !item.includes('vegetarisch') &&
-                    !item.includes('Fleisch') &&
-                    !item.includes('Fisch') &&
-                    !item.includes('Lieferant')
+                    item.toLowerCase() !== 'mit' &&
+                    item.toLowerCase() !== 'und' &&
+                    item.toLowerCase() !== 'oder' &&
+                    item.length > 2
                 )
-                .slice(0, 5); // Take max 5 items
+                .slice(0, 3); // Take max 3 items per day
             
-            console.log(`${dayName} filtered items:`, items);
-            result.menus[dayName] = items;
+            console.log(`${dayName}: ${dayItems.join(', ')}`);
+            result.menus[dayName] = dayItems;
         }
         
         return result;
