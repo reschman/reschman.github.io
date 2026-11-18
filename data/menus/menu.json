@@ -1,0 +1,27 @@
+{
+  "week": 47,
+  "year": 26,
+  "menu": {
+    "Montag": [
+      "Kroketten mit\nRindsvoressen\nVegi Hackbällchen\nOder Parmigiana\nKarotten und\nBlumenkohl",
+      "Rohkost\nBlattsalat\nSalatbuffet"
+    ],
+    "Dienstag": [
+      "Paella mit Muscheln\nund Crevetten\nReis mit vegi Burger\nBohnen und\nKürbis",
+      "Rohkost\nBlattsalat\nSalatbuffet"
+    ],
+    "Mittwoch": [
+      "Schupfnudeln mit\nVegi Nuggets\nLauchgermüse",
+      "Rohkost\nBlattsalat\nSalatbuffet"
+    ],
+    "Donnerstag": [
+      "Reisnudeln mit vegi\nFrühlingsrollen\nKrupuk\nEdamame und\nBimi",
+      "Rohkost\nBlattsalat\nSalatbuffet"
+    ],
+    "Freitag": [
+      "Pasta Day",
+      "Rohkost\nBlattsalat\nSalatbuffet"
+    ]
+  },
+  "fetched_at": "2026-11-18T21:48:41.205218Z"
+}
