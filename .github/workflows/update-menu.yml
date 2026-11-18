@@ -1,0 +1,85 @@
+name: Update weekly menu
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # Every Monday at 6 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-menu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PDF conversion tools
+        run: |
+          apt-get update
+          apt-get install -y poppler-utils ghostscript
+
+      - name: Fetch and store menu PDF
+        run: |
+          set -euo pipefail
+          mkdir -p data/menus
+
+          # Calculate current ISO week number and year
+          WEEK=$(date +%V)
+          YEAR=$(date +%y)
+          
+          echo "Fetching menu for week $WEEK, year $YEAR"
+          
+          PDF_URL="https://www.stadt-zuerich.ch/content/dam/stzh/schulen/pfingstweid/download-dateien/MenuWo${WEEK}_${YEAR}.pdf"
+          PDF_FILE="data/menus/menu-current.pdf"
+          PNG_FILE="data/menus/menu-current.png"
+          
+          # Try to download the PDF
+          if curl -fsSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" "$PDF_URL" -o "$PDF_FILE"; then
+            echo "✓ Menu PDF downloaded successfully"
+            ls -lh "$PDF_FILE"
+            
+            # Convert PDF first page to PNG
+            if pdftoppm -png -f 1 -l 1 "$PDF_FILE" "${PNG_FILE%.*}"; then
+              echo "✓ Converted PDF to PNG"
+              ls -lh "$PNG_FILE"
+            else
+              echo "⚠ PDF conversion with pdftoppm failed, trying GhostScript..."
+              if gs -q -dNOPAUSE -dBATCH -sDEVICE=png16m -dFirstPage=1 -dLastPage=1 -r150 -sOutputFile="$PNG_FILE" "$PDF_FILE"; then
+                echo "✓ Converted PDF to PNG with GhostScript"
+                ls -lh "$PNG_FILE"
+              else
+                echo "⚠ PDF conversion failed, keeping PDF only"
+              fi
+            fi
+            
+            # Store metadata about the menu
+            cat > "data/menus/menu-metadata.json" <<EOF
+          {
+            "week": $WEEK,
+            "year": $YEAR,
+            "url": "$PDF_URL",
+            "downloaded_at": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+            "pdf_file": "menu-current.pdf",
+            "png_file": "menu-current.png"
+          }
+          EOF
+          else
+            echo "✗ Failed to download menu for week $WEEK. It might not be available yet."
+            exit 1
+          fi
+
+      - name: Commit and push if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- data/menus/; then
+            echo "No menu changes to commit"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/menus/
+          git commit -m "chore: update weekly menu"
+          git push
