@@ -15,11 +15,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install PDF conversion tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y poppler-utils ghostscript
-
       - name: Fetch and store menu PDF
         run: |
           set -euo pipefail
@@ -33,34 +28,11 @@ jobs:
           
           PDF_URL="https://www.stadt-zuerich.ch/content/dam/stzh/schulen/pfingstweid/download-dateien/MenuWo${WEEK}_${YEAR}.pdf"
           PDF_FILE="data/menus/menu-current.pdf"
-          PNG_FILE="data/menus/menu-current.png"
           
           # Try to download the PDF
           if curl -fsSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" "$PDF_URL" -o "$PDF_FILE"; then
             echo "✓ Menu PDF downloaded successfully"
             ls -lh "$PDF_FILE"
-            
-            # Convert PDF first page to PNG
-            # pdftoppm creates files with format: prefix-pagenum.png
-            if pdftoppm -png -f 1 -l 1 "$PDF_FILE" "$(dirname "$PNG_FILE")/menu-current-tmp"; then
-              # Rename the generated file to our expected name
-              if [ -f "$(dirname "$PNG_FILE")/menu-current-tmp-1.png" ]; then
-                mv "$(dirname "$PNG_FILE")/menu-current-tmp-1.png" "$PNG_FILE"
-                echo "✓ Converted PDF to PNG"
-                ls -lh "$PNG_FILE"
-              else
-                echo "⚠ PDF conversion generated unexpected filename"
-                ls -lh "$(dirname "$PNG_FILE")/menu-current-tmp"*
-              fi
-            else
-              echo "⚠ PDF conversion with pdftoppm failed, trying GhostScript..."
-              if gs -q -dNOPAUSE -dBATCH -sDEVICE=png16m -dFirstPage=1 -dLastPage=1 -r150 -sOutputFile="$PNG_FILE" "$PDF_FILE"; then
-                echo "✓ Converted PDF to PNG with GhostScript"
-                ls -lh "$PNG_FILE"
-              else
-                echo "⚠ PDF conversion failed, keeping PDF only"
-              fi
-            fi
             
             # Store metadata about the menu
             cat > "data/menus/menu-metadata.json" <<EOF
@@ -69,8 +41,7 @@ jobs:
             "year": $YEAR,
             "url": "$PDF_URL",
             "downloaded_at": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
-            "pdf_file": "menu-current.pdf",
-            "png_file": "menu-current.png"
+            "pdf_file": "menu-current.pdf"
           }
           EOF
           else

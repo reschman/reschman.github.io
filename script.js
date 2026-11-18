@@ -168,33 +168,23 @@ document.addEventListener('DOMContentLoaded', function() {
             const menuContainer = document.getElementById('menu-pdf-container');
             if (!menuContainer) return;
             
-            // Try to load PNG first (preferred), then fallback to PDF
-            const pngUrl = 'data/menus/menu-current.png?t=' + Date.now();
             const pdfUrl = 'data/menus/menu-current.pdf?t=' + Date.now();
             
-            // Try PNG
-            try {
-                const pngResponse = await fetch(pngUrl);
-                if (pngResponse.ok) {
-                    const img = document.createElement('img');
-                    img.src = pngUrl;
-                    img.alt = 'Wöchentliches Menü';
-                    img.onload = function() {
-                        menuContainer.innerHTML = '';
-                        menuContainer.appendChild(img);
-                    };
-                    img.onerror = function() {
-                        // PNG failed, try PDF
-                        loadMenuPDF(pdfUrl, menuContainer);
-                    };
-                    return;
-                }
-            } catch (e) {
-                console.log('PNG not available, trying PDF...');
-            }
+            // Create an iframe for PDF display
+            const iframe = document.createElement('iframe');
+            iframe.src = pdfUrl;
+            iframe.style.width = '100%';
+            iframe.style.height = '600px';
+            iframe.style.border = 'none';
+            iframe.style.borderRadius = '10px';
+            iframe.title = 'Wöchentliches Menü';
             
-            // Fallback to PDF
-            loadMenuPDF(pdfUrl, menuContainer);
+            iframe.onerror = function() {
+                menuContainer.innerHTML = '<p class="menu-error">Menü nicht verfügbar. <a href="' + pdfUrl + '" target="_blank" download>PDF herunterladen</a></p>';
+            };
+            
+            menuContainer.innerHTML = '';
+            menuContainer.appendChild(iframe);
         } catch (error) {
             console.error('Error loading menu:', error);
             const menuContainer = document.getElementById('menu-pdf-container');
@@ -202,24 +192,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 menuContainer.innerHTML = '<p class="menu-error">Menü konnte nicht geladen werden</p>';
             }
         }
-    }
-    
-    function loadMenuPDF(pdfUrl, menuContainer) {
-        // Create an iframe for PDF display
-        const iframe = document.createElement('iframe');
-        iframe.src = pdfUrl;
-        iframe.style.width = '100%';
-        iframe.style.height = '500px';
-        iframe.style.border = 'none';
-        iframe.style.borderRadius = '10px';
-        iframe.title = 'Wöchentliches Menü';
-        
-        iframe.onerror = function() {
-            menuContainer.innerHTML = '<p class="menu-error">Menü nicht verfügbar. <a href="' + pdfUrl + '" target="_blank">Hier herunterladen</a></p>';
-        };
-        
-        menuContainer.innerHTML = '';
-        menuContainer.appendChild(iframe);
     }
     
     // Load menu immediately and then every hour
