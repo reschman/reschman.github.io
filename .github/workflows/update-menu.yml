@@ -41,9 +41,17 @@ jobs:
             ls -lh "$PDF_FILE"
             
             # Convert PDF first page to PNG
-            if pdftoppm -png -f 1 -l 1 "$PDF_FILE" "${PNG_FILE%.*}"; then
-              echo "✓ Converted PDF to PNG"
-              ls -lh "$PNG_FILE"
+            # pdftoppm creates files with format: prefix-pagenum.png
+            if pdftoppm -png -f 1 -l 1 "$PDF_FILE" "$(dirname "$PNG_FILE")/menu-current-tmp"; then
+              # Rename the generated file to our expected name
+              if [ -f "$(dirname "$PNG_FILE")/menu-current-tmp-1.png" ]; then
+                mv "$(dirname "$PNG_FILE")/menu-current-tmp-1.png" "$PNG_FILE"
+                echo "✓ Converted PDF to PNG"
+                ls -lh "$PNG_FILE"
+              else
+                echo "⚠ PDF conversion generated unexpected filename"
+                ls -lh "$(dirname "$PNG_FILE")/menu-current-tmp"*
+              fi
             else
               echo "⚠ PDF conversion with pdftoppm failed, trying GhostScript..."
               if gs -q -dNOPAUSE -dBATCH -sDEVICE=png16m -dFirstPage=1 -dLastPage=1 -r150 -sOutputFile="$PNG_FILE" "$PDF_FILE"; then
