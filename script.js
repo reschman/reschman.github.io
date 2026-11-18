@@ -168,23 +168,20 @@ document.addEventListener('DOMContentLoaded', function() {
             const menuContainer = document.getElementById('menu-pdf-container');
             if (!menuContainer) return;
             
+            menuContainer.innerHTML = '<p class="menu-loading">Menü wird analysiert...</p>';
+            
             const pdfUrl = 'data/menus/menu-current.pdf?t=' + Date.now();
             
-            // Create an iframe for PDF display
-            const iframe = document.createElement('iframe');
-            iframe.src = pdfUrl;
-            iframe.style.width = '100%';
-            iframe.style.height = '600px';
-            iframe.style.border = 'none';
-            iframe.style.borderRadius = '10px';
-            iframe.title = 'Wöchentliches Menü';
+            // Load PDF and extract text
+            const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+            const page = await pdf.getPage(1);
+            const textContent = await page.getTextContent();
             
-            iframe.onerror = function() {
-                menuContainer.innerHTML = '<p class="menu-error">Menü nicht verfügbar. <a href="' + pdfUrl + '" target="_blank" download>PDF herunterladen</a></p>';
-            };
+            const text = textContent.items.map(item => item.str).join(' ');
             
-            menuContainer.innerHTML = '';
-            menuContainer.appendChild(iframe);
+            // Parse menu and show today/tomorrow
+            const menuData = parseMenuFromText(text);
+            displayMenu(menuContainer, menuData);
         } catch (error) {
             console.error('Error loading menu:', error);
             const menuContainer = document.getElementById('menu-pdf-container');
@@ -192,6 +189,106 @@ document.addEventListener('DOMContentLoaded', function() {
                 menuContainer.innerHTML = '<p class="menu-error">Menü konnte nicht geladen werden</p>';
             }
         }
+    }
+    
+    function parseMenuFromText(text) {
+        // Days in German
+        const days = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        const todayName = days[today.getDay() === 0 ? 6 : today.getDay() - 1];
+        const tomorrowName = days[tomorrow.getDay() === 0 ? 6 : tomorrow.getDay() - 1];
+        
+        const result = {};
+        
+        // Extract menu for today and tomorrow
+        for (const dayName of [todayName, tomorrowName]) {
+            // Find the day in text (case insensitive)
+            const dayRegex = new RegExp(dayName, 'i');
+            const dayMatch = text.search(dayRegex);
+            
+            if (dayMatch !== -1) {
+                // Get text from day until next day or end
+                const dayStartIdx = dayMatch;
+                const nextDayIdx = text.indexOf('Rohkost', dayStartIdx + dayName.length);
+                const nextOtherDay = text.search(new RegExp(days.filter(d => d !== dayName).join('|'), 'i'));
+                
+                let endIdx = text.length;
+                if (nextDayIdx !== -1) {
+                    endIdx = Math.min(nextDayIdx, nextOtherDay !== -1 ? nextOtherDay : text.length);
+                } else if (nextOtherDay !== -1) {
+                    endIdx = nextOtherDay;
+                }
+                
+                const menuText = text.substring(dayStartIdx, endIdx);
+                
+                // Extract menu items (remove "Rohkost" section and common parts)
+                const lines = menuText.split(/[,\n]/);
+                const items = [];
+                
+                for (const line of lines) {
+                    const cleaned = line.trim();
+                    // Skip empty, day names, and "Rohkost" section items
+                    if (cleaned && 
+                        !days.some(d => cleaned.toLowerCase().includes(d.toLowerCase())) &&
+                        !cleaned.toLowerCase().includes('rohkost') &&
+                        !cleaned.toLowerCase().includes('blattsalat') &&
+                        !cleaned.toLowerCase().includes('salatbuffet') &&
+                        cleaned.length > 2) {
+                        items.push(cleaned);
+                    }
+                }
+                
+                result[dayName] = items.slice(0, 3); // Take first 3 items as main menu
+            }
+        }
+        
+        return { today: todayName, tomorrow: tomorrowName, menus: result };
+    }
+    
+    function displayMenu(container, menuData) {
+        const todayMenu = menuData.menus[menuData.today] || [];
+        const tomorrowMenu = menuData.menus[menuData.tomorrow] || [];
+        
+        let html = '<div class="menu-days">';
+        
+        // Today
+        html += `<div class="menu-day">
+            <h3>Heute (${menuData.today})</h3>
+            <ul class="menu-items">`;
+        
+        if (todayMenu.length > 0) {
+            todayMenu.forEach(item => {
+                html += `<li>${item}</li>`;
+            });
+        } else {
+            html += '<li class="no-menu">Kein Menü verfügbar</li>';
+        }
+        
+        html += `</ul>
+        </div>`;
+        
+        // Tomorrow
+        html += `<div class="menu-day">
+            <h3>Morgen (${menuData.tomorrow})</h3>
+            <ul class="menu-items">`;
+        
+        if (tomorrowMenu.length > 0) {
+            tomorrowMenu.forEach(item => {
+                html += `<li>${item}</li>`;
+            });
+        } else {
+            html += '<li class="no-menu">Kein Menü verfügbar</li>';
+        }
+        
+        html += `</ul>
+        </div>`;
+        
+        html += '</div>';
+        
+        container.innerHTML = html;
     }
     
     // Load menu immediately and then every hour
