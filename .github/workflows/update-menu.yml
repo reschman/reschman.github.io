@@ -2,7 +2,7 @@ name: Update weekly menu
 
 on:
   schedule:
-    - cron: "0 6 * * 1"  # Every Monday at 6 AM UTC
+    - cron: "0 6 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -12,114 +12,100 @@ jobs:
   update-menu:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install PDF conversion tools
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y poppler-utils ghostscript python3-pip
+          sudo apt-get install -y python3-pip
           pip3 install pdfplumber
 
-      - name: Fetch and parse menu PDF
+      - name: Extract and parse menu PDF
         run: |
-          set -euo pipefail
-          mkdir -p data/menus
-
-          # Calculate current ISO week number and year
-          WEEK=$(date +%V)
-          YEAR=$(date +%y)
-          
-          echo "Fetching menu for week $WEEK, year $YEAR"
-          
-          PDF_URL="https://www.stadt-zuerich.ch/content/dam/stzh/schulen/pfingstweid/download-dateien/MenuWo${WEEK}_${YEAR}.pdf"
-          PDF_FILE="data/menus/menu-current.pdf"
-          JSON_FILE="data/menus/menu.json"
-          
-          # Try to download the PDF
-          if curl -fsSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" "$PDF_URL" -o "$PDF_FILE"; then
-            echo "✓ Menu PDF downloaded successfully"
-            ls -lh "$PDF_FILE"
-            
-            # Extract menu data with Python
-            python3 << 'PYTHON'
-import pdfplumber
+          python3 << 'EOF'
+import os
+import sys
 import json
 from datetime import datetime
 
-PDF_FILE = "data/menus/menu-current.pdf"
-JSON_FILE = "data/menus/menu.json"
-
-# Days of week
-days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"]
-menu_data = {day: [] for day in days}
-
 try:
-    with pdfplumber.open(PDF_FILE) as pdf:
+    import pdfplumber
+    
+    # Create output directory
+    os.makedirs('data/menus', exist_ok=True)
+    
+    # Fetch PDF
+    import urllib.request
+    week = datetime.now().strftime("%V")
+    year = datetime.now().strftime("%y")
+    url = f"https://www.stadt-zuerich.ch/content/dam/stzh/schulen/pfingstweid/download-dateien/MenuWo{week}_{year}.pdf"
+    pdf_file = "data/menus/menu-current.pdf"
+    
+    print(f"Downloading menu for week {week}, year {year}...")
+    urllib.request.urlretrieve(url, pdf_file)
+    print(f"✓ Downloaded to {pdf_file}")
+    
+    # Parse PDF
+    days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"]
+    menu_data = {day: [] for day in days}
+    
+    with pdfplumber.open(pdf_file) as pdf:
         page = pdf.pages[0]
         tables = page.extract_tables()
         
         if tables:
             table = tables[0]
-            print(f"Found table with {len(table)} rows")
+            print(f"✓ Found table with {len(table)} rows")
             
             if len(table) > 0:
-                headers = table[0]
-                print(f"Headers: {headers}")
-                
-                for col_idx, header in enumerate(headers):
+                for col_idx in range(len(table[0])):
+                    header = str(table[0][col_idx]).strip()
                     day_name = None
+                    
                     for day in days:
-                        if day in str(header):
+                        if day in header:
                             day_name = day
                             break
                     
                     if day_name:
                         items = []
                         for row_idx in range(1, len(table)):
-                            cell = table[row_idx][col_idx] if col_idx < len(table[row_idx]) else ""
-                            if cell:
-                                text = str(cell).strip()
-                                if text and text not in ["Rohkost", "Blattsalat", "Salatbuffet", ""]:
-                                    items.append(text)
+                            if col_idx < len(table[row_idx]):
+                                cell = table[row_idx][col_idx]
+                                if cell:
+                                    text = str(cell).strip()
+                                    if text and text not in ["Rohkost", "Blattsalat", "Salatbuffet"]:
+                                        items.append(text)
                         
                         menu_data[day_name] = items[:2]
-                        print(f"{day_name}: {items[:2]}")
-        
+                        print(f"  {day_name}: {items[:2]}")
+    
+    # Save JSON
+    output = {
+        "week": int(week),
+        "year": int(year),
+        "menu": menu_data,
+        "fetched_at": datetime.utcnow().isoformat() + "Z"
+    }
+    
+    with open('data/menus/menu.json', 'w', encoding='utf-8') as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
+    
+    print("✓ Menu saved to menu.json")
+    
 except Exception as e:
-    print(f"Error parsing PDF: {e}")
+    print(f"ERROR: {e}", file=sys.stderr)
+    sys.exit(1)
+EOF
 
-output = {
-    "week": int(datetime.now().strftime("%V")),
-    "year": int(datetime.now().strftime("%y")),
-    "menu": menu_data,
-    "fetched_at": datetime.utcnow().isoformat() + "Z"
-}
-
-with open(JSON_FILE, 'w', encoding='utf-8') as f:
-    json.dump(output, f, ensure_ascii=False, indent=2)
-
-print(f"Menu data saved to {JSON_FILE}")
-PYTHON
-          else
-            echo "✗ Failed to download menu for week $WEEK. It might not be available yet."
-            exit 1
-          fi
-
-      - name: Commit and push if changed
+      - name: Commit changes
         run: |
-          set -euo pipefail
-          
-          # Add files to git index
           git add data/menus/
-          
-          # Check if there are any changes to commit
-          if git diff --cached --quiet; then
-            echo "No menu changes to commit"
-            exit 0
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: update weekly menu"
+            git push
+          else
+            echo "No changes to commit"
           fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: update weekly menu"
-          git push
