@@ -179,8 +179,16 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const text = textContent.items.map(item => item.str).join(' ');
             
+            // DEBUG: Log extracted text
+            console.log('=== EXTRACTED PDF TEXT ===');
+            console.log(text);
+            console.log('=== END TEXT ===');
+            
             // Parse menu and show today/tomorrow
             const menuData = parseMenuFromText(text);
+            console.log('=== PARSED MENU DATA ===');
+            console.log(menuData);
+            
             displayMenu(menuContainer, menuData);
         } catch (error) {
             console.error('Error loading menu:', error);
