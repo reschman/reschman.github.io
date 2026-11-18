@@ -206,59 +206,85 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function parseMenuFromText(text) {
         // Days in German
-        const days = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+        const days = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
         const today = new Date();
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
         
-        const todayName = days[today.getDay() === 0 ? 6 : today.getDay() - 1];
-        const tomorrowName = days[tomorrow.getDay() === 0 ? 6 : tomorrow.getDay() - 1];
+        // Get day index (0=Sunday, 1=Monday...)
+        let todayIndex = today.getDay() - 1; // Convert to 0-4 for Mon-Fri
+        let tomorrowIndex = tomorrow.getDay() - 1;
         
-        const result = {};
-        
-        // Extract menu for today and tomorrow
-        for (const dayName of [todayName, tomorrowName]) {
-            // Find the day in text (case insensitive)
-            const dayRegex = new RegExp(dayName, 'i');
-            const dayMatch = text.search(dayRegex);
-            
-            if (dayMatch !== -1) {
-                // Get text from day until next day or end
-                const dayStartIdx = dayMatch;
-                const nextDayIdx = text.indexOf('Rohkost', dayStartIdx + dayName.length);
-                const nextOtherDay = text.search(new RegExp(days.filter(d => d !== dayName).join('|'), 'i'));
-                
-                let endIdx = text.length;
-                if (nextDayIdx !== -1) {
-                    endIdx = Math.min(nextDayIdx, nextOtherDay !== -1 ? nextOtherDay : text.length);
-                } else if (nextOtherDay !== -1) {
-                    endIdx = nextOtherDay;
-                }
-                
-                const menuText = text.substring(dayStartIdx, endIdx);
-                
-                // Extract menu items (remove "Rohkost" section and common parts)
-                const lines = menuText.split(/[,\n]/);
-                const items = [];
-                
-                for (const line of lines) {
-                    const cleaned = line.trim();
-                    // Skip empty, day names, and "Rohkost" section items
-                    if (cleaned && 
-                        !days.some(d => cleaned.toLowerCase().includes(d.toLowerCase())) &&
-                        !cleaned.toLowerCase().includes('rohkost') &&
-                        !cleaned.toLowerCase().includes('blattsalat') &&
-                        !cleaned.toLowerCase().includes('salatbuffet') &&
-                        cleaned.length > 2) {
-                        items.push(cleaned);
-                    }
-                }
-                
-                result[dayName] = items.slice(0, 3); // Take first 3 items as main menu
-            }
+        // Handle weekends
+        if (todayIndex < 0 || todayIndex > 4) {
+            todayIndex = 0; // Default to Monday
+        }
+        if (tomorrowIndex < 0 || tomorrowIndex > 4) {
+            tomorrowIndex = 0; // Default to Monday
         }
         
-        return { today: todayName, tomorrow: tomorrowName, menus: result };
+        const todayName = days[todayIndex];
+        const tomorrowName = days[tomorrowIndex];
+        
+        // Split text by "Rohkost" to separate menu section from rest
+        const sections = text.split('Rohkost')[0]; // Get only the menu part
+        
+        const result = {
+            today: todayName,
+            tomorrow: tomorrowName,
+            menus: {}
+        };
+        
+        // For each day, find its position and extract menu until next day or Rohkost
+        for (let i = 0; i < days.length; i++) {
+            const dayName = days[i];
+            const dayIndex = text.indexOf(dayName);
+            
+            if (dayIndex === -1) continue;
+            
+            // Find next day or "Rohkost"
+            let endIndex = text.length;
+            
+            // Find next day
+            for (let j = i + 1; j < days.length; j++) {
+                const nextDayIdx = text.indexOf(days[j], dayIndex + dayName.length);
+                if (nextDayIdx !== -1 && nextDayIdx < endIndex) {
+                    endIndex = nextDayIdx;
+                }
+            }
+            
+            // Find "Rohkost"
+            const rohkostIdx = text.indexOf('Rohkost', dayIndex + dayName.length);
+            if (rohkostIdx !== -1 && rohkostIdx < endIndex) {
+                endIndex = rohkostIdx;
+            }
+            
+            // Extract menu text for this day
+            const menuText = text.substring(dayIndex + dayName.length, endIndex).trim();
+            
+            // Split by common separators and filter
+            const items = menuText
+                .split(/[\s]{2,}/) // Split by multiple spaces
+                .map(item => item.trim())
+                .filter(item => 
+                    item.length > 0 &&
+                    !days.includes(item) &&
+                    item !== 'Rohkost' &&
+                    item !== 'Blattsalat' &&
+                    item !== 'Salatbuffet' &&
+                    !item.includes('Komponenten') &&
+                    !item.includes('Allergene') &&
+                    !item.includes('vegetarisch') &&
+                    !item.includes('Fleisch') &&
+                    !item.includes('Fisch') &&
+                    !item.includes('Lieferant')
+                )
+                .slice(0, 5); // Take max 5 items
+            
+            result.menus[dayName] = items;
+        }
+        
+        return result;
     }
     
     function displayMenu(container, menuData) {
