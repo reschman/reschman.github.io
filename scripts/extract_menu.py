@@ -63,14 +63,20 @@ def extract_menu():
                         break
             
             # Extract items for each day
+            excluded_items = ["Rohkost", "Blattsalat", "Salatbuffet"]
+            
             for day, col_idx in day_columns.items():
                 items = []
                 for row_idx in range(1, len(table)):
                     cell = table[row_idx][col_idx] if col_idx < len(table[row_idx]) else None
                     if cell:
                         text = str(cell).strip()
+                        # Remove newlines and extra spaces
+                        text = " ".join(text.split())
+                        
                         # Skip empty cells and unwanted items
-                        if text and text not in ["Rohkost", "Blattsalat", "Salatbuffet", ""]:
+                        is_excluded = any(excluded in text for excluded in excluded_items)
+                        if text and not is_excluded:
                             items.append(text)
                 
                 # Take max 2 items per day
