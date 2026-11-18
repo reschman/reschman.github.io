@@ -192,7 +192,15 @@ document.addEventListener('DOMContentLoaded', function() {
             // Parse menu and show today/tomorrow
             const menuData = parseMenuFromText(text);
             console.log('=== PARSED MENU DATA ===');
-            console.log(menuData);
+            console.log('Today:', menuData.today);
+            console.log('Tomorrow:', menuData.tomorrow);
+            console.log('Menus:', menuData.menus);
+            if (menuData.menus[menuData.today]) {
+                console.log('Today menu items:', menuData.menus[menuData.today]);
+            }
+            if (menuData.menus[menuData.tomorrow]) {
+                console.log('Tomorrow menu items:', menuData.menus[menuData.tomorrow]);
+            }
             
             displayMenu(menuContainer, menuData);
         } catch (error) {
@@ -261,6 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Extract menu text for this day
             const menuText = text.substring(dayIndex + dayName.length, endIndex).trim();
+            console.log(`${dayName} raw text:`, menuText);
             
             // Split by common separators and filter
             const items = menuText
@@ -281,6 +290,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 )
                 .slice(0, 5); // Take max 5 items
             
+            console.log(`${dayName} filtered items:`, items);
             result.menus[dayName] = items;
         }
         
