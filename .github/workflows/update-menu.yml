@@ -14,98 +14,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip
-          pip3 install pdfplumber
+        run: pip install pdfplumber
 
-      - name: Extract and parse menu PDF
-        run: |
-          python3 << 'EOF'
-import os
-import sys
-import json
-from datetime import datetime
-
-try:
-    import pdfplumber
-    
-    # Create output directory
-    os.makedirs('data/menus', exist_ok=True)
-    
-    # Fetch PDF
-    import urllib.request
-    week = datetime.now().strftime("%V")
-    year = datetime.now().strftime("%y")
-    url = f"https://www.stadt-zuerich.ch/content/dam/stzh/schulen/pfingstweid/download-dateien/MenuWo{week}_{year}.pdf"
-    pdf_file = "data/menus/menu-current.pdf"
-    
-    print(f"Downloading menu for week {week}, year {year}...")
-    urllib.request.urlretrieve(url, pdf_file)
-    print(f"✓ Downloaded to {pdf_file}")
-    
-    # Parse PDF
-    days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"]
-    menu_data = {day: [] for day in days}
-    
-    with pdfplumber.open(pdf_file) as pdf:
-        page = pdf.pages[0]
-        tables = page.extract_tables()
-        
-        if tables:
-            table = tables[0]
-            print(f"✓ Found table with {len(table)} rows")
-            
-            if len(table) > 0:
-                for col_idx in range(len(table[0])):
-                    header = str(table[0][col_idx]).strip()
-                    day_name = None
-                    
-                    for day in days:
-                        if day in header:
-                            day_name = day
-                            break
-                    
-                    if day_name:
-                        items = []
-                        for row_idx in range(1, len(table)):
-                            if col_idx < len(table[row_idx]):
-                                cell = table[row_idx][col_idx]
-                                if cell:
-                                    text = str(cell).strip()
-                                    if text and text not in ["Rohkost", "Blattsalat", "Salatbuffet"]:
-                                        items.append(text)
-                        
-                        menu_data[day_name] = items[:2]
-                        print(f"  {day_name}: {items[:2]}")
-    
-    # Save JSON
-    output = {
-        "week": int(week),
-        "year": int(year),
-        "menu": menu_data,
-        "fetched_at": datetime.utcnow().isoformat() + "Z"
-    }
-    
-    with open('data/menus/menu.json', 'w', encoding='utf-8') as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
-    
-    print("✓ Menu saved to menu.json")
-    
-except Exception as e:
-    print(f"ERROR: {e}", file=sys.stderr)
-    sys.exit(1)
-EOF
+      - name: Extract menu
+        run: python3 scripts/extract_menu.py
 
       - name: Commit changes
         run: |
-          git add data/menus/
+          git add data/menus/menu.json
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -m "chore: update weekly menu"
             git push
-          else
-            echo "No changes to commit"
           fi
