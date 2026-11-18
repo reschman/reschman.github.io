@@ -1,6 +1,11 @@
 //reschmann, 1.7.2025-
 //io Demo Page  
 
+// Set PDF.js worker source
+if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const urlElement = document.querySelector('.animated-url');
     const comingSoonElement = document.querySelector('.coming-soon');
