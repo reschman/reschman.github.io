@@ -57,20 +57,16 @@ menu_data = {day: [] for day in days}
 try:
     with pdfplumber.open(PDF_FILE) as pdf:
         page = pdf.pages[0]
-        
-        # Extract table from page
         tables = page.extract_tables()
         
         if tables:
             table = tables[0]
             print(f"Found table with {len(table)} rows")
             
-            # First row should be headers (days)
             if len(table) > 0:
                 headers = table[0]
                 print(f"Headers: {headers}")
                 
-                # Map columns to days
                 for col_idx, header in enumerate(headers):
                     day_name = None
                     for day in days:
@@ -79,24 +75,20 @@ try:
                             break
                     
                     if day_name:
-                        # Extract menu items for this day from rows 1 onwards (skip "Rohkost" row)
                         items = []
                         for row_idx in range(1, len(table)):
                             cell = table[row_idx][col_idx] if col_idx < len(table[row_idx]) else ""
                             if cell:
                                 text = str(cell).strip()
-                                # Skip empty, "Rohkost", "Blattsalat", "Salatbuffet"
                                 if text and text not in ["Rohkost", "Blattsalat", "Salatbuffet", ""]:
                                     items.append(text)
                         
-                        # Take first 2 items as main menu
                         menu_data[day_name] = items[:2]
                         print(f"{day_name}: {items[:2]}")
         
 except Exception as e:
     print(f"Error parsing PDF: {e}")
 
-# Save as JSON
 output = {
     "week": int(datetime.now().strftime("%V")),
     "year": int(datetime.now().strftime("%y")),
@@ -109,7 +101,6 @@ with open(JSON_FILE, 'w', encoding='utf-8') as f:
 
 print(f"Menu data saved to {JSON_FILE}")
 PYTHON
-            
           else
             echo "✗ Failed to download menu for week $WEEK. It might not be available yet."
             exit 1
