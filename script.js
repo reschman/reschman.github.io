@@ -49,23 +49,23 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function formatDischargeTrend(trend, delta) {
         const deltaNumber = Number(delta);
-        const timeWindow = '24h'; // Berechnungszeitraum
+        const timeWindow = '24h'; // Calculation period
 
         if (trend === 'steady') {
-            return `Trend (${timeWindow}): konstant`;
+            return `Trend (${timeWindow}): stable`;
         }
 
         if (trend === 'rising') {
-            if (Number.isNaN(deltaNumber)) return `Trend (${timeWindow}): steigend`;
-            return `Trend (${timeWindow}): steigend (+${deltaNumber.toFixed(1)} m3/s)`;
+            if (Number.isNaN(deltaNumber)) return `Trend (${timeWindow}): rising`;
+            return `Trend (${timeWindow}): rising (+${deltaNumber.toFixed(1)} m3/s)`;
         }
 
         if (trend === 'falling') {
-            if (Number.isNaN(deltaNumber)) return `Trend (${timeWindow}): sinkend`;
-            return `Trend (${timeWindow}): sinkend (${deltaNumber.toFixed(1)} m3/s)`;
+            if (Number.isNaN(deltaNumber)) return `Trend (${timeWindow}): falling`;
+            return `Trend (${timeWindow}): falling (${deltaNumber.toFixed(1)} m3/s)`;
         }
 
-        return `Trend (${timeWindow}): noch keine Vergleichsdaten`;
+        return `Trend (${timeWindow}): no comparison data yet`;
     }
 
     function updateTrendArrow(trend) {
@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const menuContainer = document.getElementById('menu-pdf-container');
             if (!menuContainer) return;
             
-            menuContainer.innerHTML = '<p class="menu-loading">Menü wird geladen...</p>';
+            menuContainer.innerHTML = '<p class="menu-loading">Loading menu...</p>';
             
             // Load menu JSON
             const response = await fetch('data/menus/menu.json?t=' + Date.now());
@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error loading menu:', error);
             const menuContainer = document.getElementById('menu-pdf-container');
             if (menuContainer) {
-                menuContainer.innerHTML = '<p class="menu-error">Menü konnte nicht geladen werden</p>';
+                menuContainer.innerHTML = '<p class="menu-error">Menu could not be loaded</p>';
             }
         }
     }
@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
         tomorrow.setDate(tomorrow.getDate() + 1);
         
         // Days array
-        const days = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
         
         // Get today and tomorrow day names
         let todayIndex = today.getDay() - 1; // 0=Monday
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Today
         html += `<div class="menu-day">
-            <h3>Heute (${todayName})</h3>
+            <h3>Today (${todayName})</h3>
             <ul class="menu-items">`;
         
         if (todayMenu.length > 0) {
@@ -224,7 +224,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += `<li>${item}</li>`;
             });
         } else {
-            html += '<li class="no-menu">Kein Menü verfügbar</li>';
+            html += '<li class="no-menu">No menu available</li>';
         }
         
         html += `</ul>
@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Tomorrow
         html += `<div class="menu-day">
-            <h3>Morgen (${tomorrowName})</h3>
+            <h3>Tomorrow (${tomorrowName})</h3>
             <ul class="menu-items">`;
         
         if (tomorrowMenu.length > 0) {
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += `<li>${item}</li>`;
             });
         } else {
-            html += '<li class="no-menu">Kein Menü verfügbar</li>';
+            html += '<li class="no-menu">No menu available</li>';
         }
         
         html += `</ul>
@@ -255,7 +255,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadMenu();
     setInterval(loadMenu, 60 * 60 * 1000);
     
-    // Add mouse hover effect to the URL
+    // Add mouse hover effect to URL element
     urlElement.addEventListener('mouseenter', function() {
         this.style.animationPlayState = 'paused';
         this.style.transform = 'scale(1.1)';
@@ -267,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
         this.style.transform = 'scale(1)';
     });
     
-    // Add typing effect to "coming soon" text
+    // Add typewriter effect to element
     function typeWriter(element, text, speed = 100) {
         let i = 0;
         element.textContent = '';
@@ -282,12 +282,12 @@ document.addEventListener('DOMContentLoaded', function() {
         type();
     }
     
-    // Start typing effect after a delay
+    // Start typewriter effect after delay
     setTimeout(() => {
         typeWriter(comingSoonElement, 'more to come....', 150);
     }, 1000);
     
-    // Add parallax effect on mouse move
+    // Add parallax effect on mouse movement
     document.addEventListener('mousemove', function(e) {
         const mouseX = e.clientX / window.innerWidth;
         const mouseY = e.clientY / window.innerHeight;
@@ -295,7 +295,7 @@ document.addEventListener('DOMContentLoaded', function() {
         urlElement.style.transform = `translateY(${-10 + mouseY * 5}px) translateX(${mouseX * 5}px)`;
     });
     
-    // Add click effect to the URL
+    // Add click effect to URL element
     urlElement.addEventListener('click', function() {
         this.style.transform = 'scale(0.95)';
         setTimeout(() => {
@@ -303,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 150);
     });
     
-    // Add smooth color transition to background
+    // Smooth color transition animation for background
     let hue = 0;
     setInterval(() => {
         hue = (hue + 0.1) % 360;
