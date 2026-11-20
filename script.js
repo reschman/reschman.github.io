@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function formatDischargeTrend(trend, delta) {
         const deltaNumber = Number(delta);
-        const timeWindow = '24h'; // Berechnungszeitraum
+        const timeWindow = '48h'; // Berechnungszeitraum
 
         if (trend === 'steady') {
             return `Trend (${timeWindow}): konstant`;
