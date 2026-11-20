@@ -88,9 +88,9 @@ jobs:
               raise RuntimeError("Could not parse discharge value from station content")
 
           # Add current measurement to history
-          now_utc = datetime.datetime.utcnow()
+          now_utc = datetime.datetime.now(datetime.timezone.utc)
           history_entry = {
-              "timestamp_utc": now_utc.isoformat() + "Z",
+              "timestamp_utc": now_utc.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
               "discharge_m3s": round(discharge_value, 1),
               "source_timestamp": source_timestamp
           }
@@ -139,7 +139,7 @@ jobs:
               "previous_discharge_m3s": previous_value if isinstance(previous_value, (int, float)) else None,
               "delta_m3s": delta,
               "trend": trend,
-              "fetched_at_utc": now_utc.replace(microsecond=0).isoformat() + "Z",
+              "fetched_at_utc": now_utc.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
               "source_url": "https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099"
           }
 
