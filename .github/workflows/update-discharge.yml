@@ -32,15 +32,24 @@ jobs:
           import re
 
           DATA_PATH = "data/discharge.json"
+          HISTORY_PATH = "data/discharge-history.json"
           SOURCE_PATH = "/tmp/station_2099.html"
 
-          previous = {}
+          current = {}
           if os.path.exists(DATA_PATH):
               try:
                   with open(DATA_PATH, "r", encoding="utf-8") as f:
-                      previous = json.load(f)
+                      current = json.load(f)
               except Exception:
-                  previous = {}
+                  current = {}
+
+          history = []
+          if os.path.exists(HISTORY_PATH):
+              try:
+                  with open(HISTORY_PATH, "r", encoding="utf-8") as f:
+                      history = json.load(f)
+              except Exception:
+                  history = []
 
           with open(SOURCE_PATH, "r", encoding="utf-8") as f:
               text = f.read()
@@ -78,22 +87,49 @@ jobs:
           if discharge_value is None:
               raise RuntimeError("Could not parse discharge value from station content")
 
-          previous_value = previous.get("discharge_m3s")
-          previous_timestamp = previous.get("source_timestamp")
+          # Add current measurement to history
+          now_utc = datetime.datetime.utcnow()
+          history_entry = {
+              "timestamp_utc": now_utc.isoformat() + "Z",
+              "discharge_m3s": round(discharge_value, 1),
+              "source_timestamp": source_timestamp
+          }
+          history.append(history_entry)
 
+          # Keep only entries from the last 25 hours
+          cutoff_time = now_utc - datetime.timedelta(hours=25)
+          history = [entry for entry in history if datetime.datetime.fromisoformat(entry["timestamp_utc"].replace("Z", "+00:00")) > cutoff_time]
+
+          # Calculate 24-hour trend
           trend = "unknown"
           delta = None
+          value_24h_ago = None
 
-          if isinstance(previous_value, (int, float)):
-              delta = round(discharge_value - float(previous_value), 1)
+          if len(history) >= 2:
+              # Find entry closest to 24 hours ago
+              target_time = now_utc - datetime.timedelta(hours=24)
+              closest_entry = None
+              min_time_diff = None
 
-              # Always calculate trend based on delta (not based on timestamp equality)
-              if abs(delta) < 0.1:
-                  trend = "steady"
-              elif delta > 0:
-                  trend = "rising"
-              else:
-                  trend = "falling"
+              for entry in history[:-1]:  # Exclude current entry
+                  entry_time = datetime.datetime.fromisoformat(entry["timestamp_utc"].replace("Z", "+00:00"))
+                  time_diff = abs((entry_time - target_time).total_seconds())
+                  if min_time_diff is None or time_diff < min_time_diff:
+                      min_time_diff = time_diff
+                      closest_entry = entry
+
+              if closest_entry:
+                  value_24h_ago = closest_entry.get("discharge_m3s")
+                  if isinstance(value_24h_ago, (int, float)):
+                      delta = round(discharge_value - float(value_24h_ago), 1)
+                      if abs(delta) < 0.1:
+                          trend = "steady"
+                      elif delta > 0:
+                          trend = "rising"
+                      else:
+                          trend = "falling"
+
+          previous_value = current.get("discharge_m3s")
 
           output = {
               "station_id": "2099",
@@ -103,12 +139,16 @@ jobs:
               "previous_discharge_m3s": previous_value if isinstance(previous_value, (int, float)) else None,
               "delta_m3s": delta,
               "trend": trend,
-              "fetched_at_utc": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+              "fetched_at_utc": now_utc.replace(microsecond=0).isoformat() + "Z",
               "source_url": "https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099"
           }
 
           with open(DATA_PATH, "w", encoding="utf-8") as f:
               json.dump(output, f, ensure_ascii=True, indent=2)
+              f.write("\n")
+
+          with open(HISTORY_PATH, "w", encoding="utf-8") as f:
+              json.dump(history, f, ensure_ascii=True, indent=2)
               f.write("\n")
 
           print(json.dumps(output, ensure_ascii=True))
@@ -117,13 +157,13 @@ jobs:
       - name: Commit and push if changed
         run: |
           set -euo pipefail
-          if git diff --quiet -- data/discharge.json; then
+          if git diff --quiet -- data/discharge.json data/discharge-history.json; then
             echo "No data changes to commit"
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/discharge.json
+          git add data/discharge.json data/discharge-history.json
           git commit -m "chore: update discharge data"
           git push
