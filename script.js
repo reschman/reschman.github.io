@@ -49,22 +49,23 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function formatDischargeTrend(trend, delta) {
         const deltaNumber = Number(delta);
+        const timeWindow = '24h'; // Berechnungszeitraum
 
         if (trend === 'steady') {
-            return 'Trend: konstant';
+            return `Trend (${timeWindow}): konstant`;
         }
 
         if (trend === 'rising') {
-            if (Number.isNaN(deltaNumber)) return 'Trend: steigend';
-            return `Trend: steigend (+${deltaNumber.toFixed(1)} m3/s)`;
+            if (Number.isNaN(deltaNumber)) return `Trend (${timeWindow}): steigend`;
+            return `Trend (${timeWindow}): steigend (+${deltaNumber.toFixed(1)} m3/s)`;
         }
 
         if (trend === 'falling') {
-            if (Number.isNaN(deltaNumber)) return 'Trend: sinkend';
-            return `Trend: sinkend (${deltaNumber.toFixed(1)} m3/s)`;
+            if (Number.isNaN(deltaNumber)) return `Trend (${timeWindow}): sinkend`;
+            return `Trend (${timeWindow}): sinkend (${deltaNumber.toFixed(1)} m3/s)`;
         }
 
-        return 'Trend: noch keine Vergleichsdaten';
+        return `Trend (${timeWindow}): noch keine Vergleichsdaten`;
     }
 
     function updateTrendArrow(trend) {
