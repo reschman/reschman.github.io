@@ -6,7 +6,7 @@
   "previous_discharge_m3s": 185.0,
   "delta_m3s": 0.0,
   "trend": "steady",
-  "highest_discharge_m3s": 400.0,
+  "highest_discharge_m3s": 185.0,,
   "highest_timestamp": "22.11.2026 15:02",
   "lowest_discharge_m3s": 185.0,
   "lowest_timestamp": "22.11.2026 14:50",
