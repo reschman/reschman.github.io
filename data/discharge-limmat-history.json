@@ -18,5 +18,10 @@
     "timestamp_utc": "2026-11-22T14:09:54Z",
     "discharge_m3s": 29.0,
     "source_timestamp": "22.11.2026 15:00"
+  },
+  {
+    "timestamp_utc": "2026-11-22T14:10:46Z",
+    "discharge_m3s": 29.0,
+    "source_timestamp": "22.11.2026 15:00"
   }
 ]
