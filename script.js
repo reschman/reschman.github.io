@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById(dischargeStatusId).textContent = 'Data unavailable';
             updateTrendArrow('unknown', trendArrowId);
         }
+    }
     
     // Convert WMO weather codes to descriptions
     function getWeatherDescription(code) {
