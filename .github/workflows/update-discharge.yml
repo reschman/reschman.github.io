@@ -15,15 +15,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Fetch station page and update JSON
+      - name: Fetch discharge data for all stations
         run: |
           set -euo pipefail
           mkdir -p data
+          
+          # Download station pages
           curl -fsSL \
             -H "Cache-Control: no-cache" \
             -H "Pragma: no-cache" \
             "https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099" \
             -o /tmp/station_2099.html
+          
+          curl -fsSL \
+            -H "Cache-Control: no-cache" \
+            -H "Pragma: no-cache" \
+            "https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2288" \
+            -o /tmp/station_2288.html
 
           python3 - <<'PY'
           import datetime
@@ -31,159 +39,171 @@ jobs:
           import os
           import re
 
-          DATA_PATH = "data/discharge.json"
-          HISTORY_PATH = "data/discharge-history.json"
-          SOURCE_PATH = "/tmp/station_2099.html"
+          def process_station(station_id, station_name, source_path, data_path, history_path):
+              """Process a single discharge station."""
+              current = {}
+              if os.path.exists(data_path):
+                  try:
+                      with open(data_path, "r", encoding="utf-8") as f:
+                          current = json.load(f)
+                  except Exception:
+                      current = {}
 
-          current = {}
-          if os.path.exists(DATA_PATH):
-              try:
-                  with open(DATA_PATH, "r", encoding="utf-8") as f:
-                      current = json.load(f)
-              except Exception:
-                  current = {}
+              history = []
+              if os.path.exists(history_path):
+                  try:
+                      with open(history_path, "r", encoding="utf-8") as f:
+                          history = json.load(f)
+                  except Exception:
+                      history = []
 
-          history = []
-          if os.path.exists(HISTORY_PATH):
-              try:
-                  with open(HISTORY_PATH, "r", encoding="utf-8") as f:
-                      history = json.load(f)
-              except Exception:
-                  history = []
+              with open(source_path, "r", encoding="utf-8") as f:
+                  text = f.read()
 
-          with open(SOURCE_PATH, "r", encoding="utf-8") as f:
-              text = f.read()
+              discharge_value = None
+              source_timestamp = None
 
-          discharge_value = None
-          source_timestamp = None
-
-          # Parse direct station HTML table row:
-          # <div>Letzter Messwert</div><div class="opacity-75">02.11.2026 21:40</div> ... <td><div>23</div>
-          html_row_regex = re.compile(
-              r"<div>\s*Letzter\s+Messwert\s*</div>\s*"
-              r"<div[^>]*>\s*(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})\s*</div>\s*"
-              r"</td>\s*<td[^>]*>\s*<div>\s*(\d+(?:[\.,]\d+)?)\s*</div>",
-              re.IGNORECASE | re.DOTALL,
-          )
-          html_match = html_row_regex.search(text)
-
-          if html_match:
-              source_timestamp = html_match.group(1)
-              discharge_value = float(html_match.group(2).replace(",", "."))
-
-          # Fallback for markdown/text mirrors if HTML structure changes.
-          if discharge_value is None:
-              text_match = re.search(
-                  r"Letzter\s+Messwert[^\n]*\|\s*(\d+(?:[\.,]\d+)?)\s*\|",
-                  text,
-                  re.IGNORECASE,
+              # Parse direct station HTML table row
+              html_row_regex = re.compile(
+                  r"<div>\s*Letzter\s+Messwert\s*</div>\s*"
+                  r"<div[^>]*>\s*(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})\s*</div>\s*"
+                  r"</td>\s*<td[^>]*>\s*<div>\s*(\d+(?:[\.,]\d+)?)\s*</div>",
+                  re.IGNORECASE | re.DOTALL,
               )
-              ts_match = re.search(r"Letzter\s+Messwert\s*(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})", text, re.IGNORECASE)
-              if text_match:
-                  discharge_value = float(text_match.group(1).replace(",", "."))
-              if ts_match:
-                  source_timestamp = ts_match.group(1)
+              html_match = html_row_regex.search(text)
 
-          if discharge_value is None:
-              raise RuntimeError("Could not parse discharge value from station content")
+              if html_match:
+                  source_timestamp = html_match.group(1)
+                  discharge_value = float(html_match.group(2).replace(",", "."))
 
-          # Add current measurement to history
-          now_utc = datetime.datetime.now(datetime.timezone.utc)
-          history_entry = {
-              "timestamp_utc": now_utc.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-              "discharge_m3s": round(discharge_value, 1),
-              "source_timestamp": source_timestamp
-          }
-          history.append(history_entry)
+              # Fallback for markdown/text mirrors if HTML structure changes
+              if discharge_value is None:
+                  text_match = re.search(
+                      r"Letzter\s+Messwert[^\n]*\|\s*(\d+(?:[\.,]\d+)?)\s*\|",
+                      text,
+                      re.IGNORECASE,
+                  )
+                  ts_match = re.search(r"Letzter\s+Messwert\s*(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})", text, re.IGNORECASE)
+                  if text_match:
+                      discharge_value = float(text_match.group(1).replace(",", "."))
+                  if ts_match:
+                      source_timestamp = ts_match.group(1)
 
-          # Keep only entries from the last 25 hours
-          cutoff_time = now_utc - datetime.timedelta(hours=25)
-          history = [entry for entry in history if datetime.datetime.fromisoformat(entry["timestamp_utc"].replace("Z", "+00:00")) > cutoff_time]
+              if discharge_value is None:
+                  raise RuntimeError(f"Could not parse discharge value from station {station_id}")
 
-          # Calculate 24-hour trend
-          trend = "unknown"
-          delta = None
-          value_24h_ago = None
+              # Add current measurement to history
+              now_utc = datetime.datetime.now(datetime.timezone.utc)
+              history_entry = {
+                  "timestamp_utc": now_utc.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                  "discharge_m3s": round(discharge_value, 1),
+                  "source_timestamp": source_timestamp
+              }
+              history.append(history_entry)
 
-          if len(history) >= 2:
-              # Find entry closest to 24 hours ago
-              target_time = now_utc - datetime.timedelta(hours=24)
-              closest_entry = None
-              min_time_diff = None
+              # Keep only entries from the last 25 hours
+              cutoff_time = now_utc - datetime.timedelta(hours=25)
+              history = [entry for entry in history if datetime.datetime.fromisoformat(entry["timestamp_utc"].replace("Z", "+00:00")) > cutoff_time]
 
-              for entry in history[:-1]:  # Exclude current entry
-                  entry_time = datetime.datetime.fromisoformat(entry["timestamp_utc"].replace("Z", "+00:00"))
-                  time_diff = abs((entry_time - target_time).total_seconds())
-                  if min_time_diff is None or time_diff < min_time_diff:
-                      min_time_diff = time_diff
-                      closest_entry = entry
+              # Calculate 24-hour trend
+              trend = "unknown"
+              delta = None
+              value_24h_ago = None
 
-              if closest_entry:
-                  value_24h_ago = closest_entry.get("discharge_m3s")
-                  if isinstance(value_24h_ago, (int, float)):
-                      delta = round(discharge_value - float(value_24h_ago), 1)
-                      if abs(delta) < 0.1:
-                          trend = "steady"
-                      elif delta > 0:
-                          trend = "rising"
-                      else:
-                          trend = "falling"
+              if len(history) >= 2:
+                  target_time = now_utc - datetime.timedelta(hours=24)
+                  closest_entry = None
+                  min_time_diff = None
 
-          previous_value = current.get("discharge_m3s")
+                  for entry in history[:-1]:
+                      entry_time = datetime.datetime.fromisoformat(entry["timestamp_utc"].replace("Z", "+00:00"))
+                      time_diff = abs((entry_time - target_time).total_seconds())
+                      if min_time_diff is None or time_diff < min_time_diff:
+                          min_time_diff = time_diff
+                          closest_entry = entry
 
-          # Track highest and lowest discharge values
-          highest_value = current.get("highest_discharge_m3s")
-          highest_timestamp = current.get("highest_timestamp")
-          lowest_value = current.get("lowest_discharge_m3s")
-          lowest_timestamp = current.get("lowest_timestamp")
+                  if closest_entry:
+                      value_24h_ago = closest_entry.get("discharge_m3s")
+                      if isinstance(value_24h_ago, (int, float)):
+                          delta = round(discharge_value - float(value_24h_ago), 1)
+                          if abs(delta) < 0.1:
+                              trend = "steady"
+                          elif delta > 0:
+                              trend = "rising"
+                          else:
+                              trend = "falling"
 
-          # Update highest value if current is higher
-          if highest_value is None or discharge_value > highest_value:
-              highest_value = round(discharge_value, 1)
-              highest_timestamp = source_timestamp
+              previous_value = current.get("discharge_m3s")
 
-          # Update lowest value if current is lower
-          if lowest_value is None or discharge_value < lowest_value:
-              lowest_value = round(discharge_value, 1)
-              lowest_timestamp = source_timestamp
+              # Track highest and lowest discharge values
+              highest_value = current.get("highest_discharge_m3s")
+              highest_timestamp = current.get("highest_timestamp")
+              lowest_value = current.get("lowest_discharge_m3s")
+              lowest_timestamp = current.get("lowest_timestamp")
 
-          output = {
-              "station_id": "2099",
-              "station_name": "Limmat - Zurich, Unterhard",
-              "discharge_m3s": round(discharge_value, 1),
-              "source_timestamp": source_timestamp,
-              "previous_discharge_m3s": previous_value if isinstance(previous_value, (int, float)) else None,
-              "delta_m3s": delta,
-              "trend": trend,
-              "highest_discharge_m3s": highest_value,
-              "highest_timestamp": highest_timestamp,
-              "lowest_discharge_m3s": lowest_value,
-              "lowest_timestamp": lowest_timestamp,
-              "fetched_at_utc": now_utc.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-              "source_url": "https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099"
-          }
+              if highest_value is None or discharge_value > highest_value:
+                  highest_value = round(discharge_value, 1)
+                  highest_timestamp = source_timestamp
 
-          with open(DATA_PATH, "w", encoding="utf-8") as f:
-              json.dump(output, f, ensure_ascii=True, indent=2)
-              f.write("\n")
+              if lowest_value is None or discharge_value < lowest_value:
+                  lowest_value = round(discharge_value, 1)
+                  lowest_timestamp = source_timestamp
 
-          with open(HISTORY_PATH, "w", encoding="utf-8") as f:
-              json.dump(history, f, ensure_ascii=True, indent=2)
-              f.write("\n")
+              output = {
+                  "station_id": station_id,
+                  "station_name": station_name,
+                  "discharge_m3s": round(discharge_value, 1),
+                  "source_timestamp": source_timestamp,
+                  "previous_discharge_m3s": previous_value if isinstance(previous_value, (int, float)) else None,
+                  "delta_m3s": delta,
+                  "trend": trend,
+                  "highest_discharge_m3s": highest_value,
+                  "highest_timestamp": highest_timestamp,
+                  "lowest_discharge_m3s": lowest_value,
+                  "lowest_timestamp": lowest_timestamp,
+                  "fetched_at_utc": now_utc.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                  "source_url": f"https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/{station_id}"
+              }
 
-          print(json.dumps(output, ensure_ascii=True))
+              with open(data_path, "w", encoding="utf-8") as f:
+                  json.dump(output, f, ensure_ascii=True, indent=2)
+                  f.write("\n")
+
+              with open(history_path, "w", encoding="utf-8") as f:
+                  json.dump(history, f, ensure_ascii=True, indent=2)
+                  f.write("\n")
+
+              print(json.dumps(output, ensure_ascii=True))
+
+          # Process Limmat station
+          process_station(
+              "2099",
+              "Limmat - Zurich, Unterhard",
+              "/tmp/station_2099.html",
+              "data/discharge-limmat.json",
+              "data/discharge-limmat-history.json"
+          )
+
+          # Process Rheinfall station
+          process_station(
+              "2288",
+              "Rhine Falls - Schaffhausen",
+              "/tmp/station_2288.html",
+              "data/discharge-rheinfall.json",
+              "data/discharge-rheinfall-history.json"
+          )
           PY
 
       - name: Commit and push if changed
         run: |
           set -euo pipefail
-          if git diff --quiet -- data/discharge.json data/discharge-history.json; then
+          if git diff --quiet -- data/discharge*.json; then
             echo "No data changes to commit"
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/discharge.json data/discharge-history.json
+          git add data/discharge*.json
           git commit -m "chore: update discharge data"
           git push
