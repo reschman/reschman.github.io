@@ -131,6 +131,22 @@ jobs:
 
           previous_value = current.get("discharge_m3s")
 
+          # Track highest and lowest discharge values
+          highest_value = current.get("highest_discharge_m3s")
+          highest_timestamp = current.get("highest_timestamp")
+          lowest_value = current.get("lowest_discharge_m3s")
+          lowest_timestamp = current.get("lowest_timestamp")
+
+          # Update highest value if current is higher
+          if highest_value is None or discharge_value > highest_value:
+              highest_value = round(discharge_value, 1)
+              highest_timestamp = source_timestamp
+
+          # Update lowest value if current is lower
+          if lowest_value is None or discharge_value < lowest_value:
+              lowest_value = round(discharge_value, 1)
+              lowest_timestamp = source_timestamp
+
           output = {
               "station_id": "2099",
               "station_name": "Limmat - Zurich, Unterhard",
@@ -139,6 +155,10 @@ jobs:
               "previous_discharge_m3s": previous_value if isinstance(previous_value, (int, float)) else None,
               "delta_m3s": delta,
               "trend": trend,
+              "highest_discharge_m3s": highest_value,
+              "highest_timestamp": highest_timestamp,
+              "lowest_discharge_m3s": lowest_value,
+              "lowest_timestamp": lowest_timestamp,
               "fetched_at_utc": now_utc.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
               "source_url": "https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2099"
           }

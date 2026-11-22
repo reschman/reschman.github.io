@@ -103,9 +103,20 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!Number.isNaN(dischargeNumber)) {
                 dischargeValue.textContent = dischargeNumber.toFixed(0);
                 const trendText = formatDischargeTrend(data.trend, data.delta_m3s);
-                const timeText = data.source_timestamp ? ` | Messzeit: ${data.source_timestamp}` : '';
+                const timeText = data.source_timestamp ? ` | Measurement time: ${data.source_timestamp}` : '';
                 dischargeStatus.textContent = trendText + timeText;
                 updateTrendArrow(data.trend);
+                
+                // Update highest and lowest values
+                const highestInfo = document.getElementById('highest-info');
+                const lowestInfo = document.getElementById('lowest-info');
+                
+                if (highestInfo && data.highest_discharge_m3s) {
+                    highestInfo.textContent = `Highest: ${data.highest_discharge_m3s} m³/s (${data.highest_timestamp})`;
+                }
+                if (lowestInfo && data.lowest_discharge_m3s) {
+                    lowestInfo.textContent = `Lowest: ${data.lowest_discharge_m3s} m³/s (${data.lowest_timestamp})`;
+                }
             } else {
                 dischargeValue.textContent = '--';
                 dischargeStatus.innerHTML = `No data parsed <a href="${STATION_PAGE}" target="_blank" rel="noopener">source</a>`;
