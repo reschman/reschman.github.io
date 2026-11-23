@@ -1,4 +1,4 @@
-//reschmann, 1.7.2025-
+//reschmann, 22.11.2026-
 //io Demo Page  
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -227,10 +227,10 @@ document.addEventListener('DOMContentLoaded', function() {
         tomorrow.setDate(tomorrow.getDate() + 1);
         
         // Days array
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        const days = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
         
         // Get today and tomorrow day names
-        let todayIndex = today.getDay() - 1; // 0=Monday
+        let todayIndex = today.getDay() - 1; // 0=Montag
         let tomorrowIndex = tomorrow.getDay() - 1;
         
         // Handle weekends
