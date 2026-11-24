@@ -1,15 +1,5 @@
 [
   {
-    "timestamp_utc": "2026-11-23T16:11:22Z",
-    "discharge_m3s": 42.0,
-    "source_timestamp": "23.11.2026 16:30"
-  },
-  {
-    "timestamp_utc": "2026-11-23T17:10:39Z",
-    "discharge_m3s": 43.0,
-    "source_timestamp": "23.11.2026 18:00"
-  },
-  {
     "timestamp_utc": "2026-11-23T18:13:07Z",
     "discharge_m3s": 43.0,
     "source_timestamp": "23.11.2026 19:00"
@@ -113,5 +103,10 @@
     "timestamp_utc": "2026-11-24T17:10:50Z",
     "discharge_m3s": 33.0,
     "source_timestamp": "24.11.2026 18:00"
+  },
+  {
+    "timestamp_utc": "2026-11-24T18:13:10Z",
+    "discharge_m3s": 34.0,
+    "source_timestamp": "24.11.2026 18:50"
   }
 ]
