@@ -2,14 +2,14 @@
   "station_id": "2288",
   "station_name": "Rhine Falls - Schaffhausen",
   "discharge_m3s": 193.0,
-  "source_timestamp": "26.11.2026 02:00",
-  "previous_discharge_m3s": 192.0,
-  "delta_m3s": 3.0,
+  "source_timestamp": "26.11.2026 03:00",
+  "previous_discharge_m3s": 193.0,
+  "delta_m3s": 2.0,
   "trend": "rising",
   "highest_discharge_m3s": 196.0,
   "highest_timestamp": "25.11.2026 21:00",
   "lowest_discharge_m3s": 185.0,
   "lowest_timestamp": "22.11.2026 15:00",
-  "fetched_at_utc": "2026-11-26T01:12:06Z",
+  "fetched_at_utc": "2026-11-26T02:15:52Z",
   "source_url": "https://www.hydrodaten.admin.ch/de/seen-und-fluesse/stationen-und-daten/2288"
 }
