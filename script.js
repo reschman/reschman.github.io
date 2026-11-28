@@ -226,36 +226,37 @@ document.addEventListener('DOMContentLoaded', function() {
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
         
-        // Days array
+        // Days array (0=Montag, 1=Dienstag, ..., 4=Freitag)
         const days = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
         
-        // Get today and tomorrow day names
-        let todayIndex = today.getDay() - 1; // 0=Montag
+        // Get today and tomorrow day indices
+        let todayIndex = today.getDay() - 1; // 0=Montag, -1=Sunday, 5=Saturday
         let tomorrowIndex = tomorrow.getDay() - 1;
         
-        // Handle weekends
-        if (todayIndex < 0 || todayIndex > 4) todayIndex = 0;
-        if (tomorrowIndex < 0 || tomorrowIndex > 4) tomorrowIndex = 0;
-        
-        const todayName = days[todayIndex];
-        const tomorrowName = days[tomorrowIndex];
-        
-        const todayMenu = menuData.menu[todayName] || [];
-        const tomorrowMenu = menuData.menu[tomorrowName] || [];
+        // Check if today is weekend
+        const isTodayWeekend = todayIndex < 0 || todayIndex > 4;
+        const isTomorrowWeekend = tomorrowIndex < 0 || tomorrowIndex > 4;
         
         let html = '<div class="menu-days">';
         
         // Today
         html += `<div class="menu-day">
-            <h3>Today (${todayName})</h3>
+            <h3>Today</h3>
             <ul class="menu-items">`;
         
-        if (todayMenu.length > 0) {
-            todayMenu.forEach(item => {
-                html += `<li>${item}</li>`;
-            });
+        if (isTodayWeekend) {
+            html += '<li class="closed">Closed</li>';
         } else {
-            html += '<li class="no-menu">No menu available</li>';
+            const todayName = days[todayIndex];
+            const todayMenu = menuData.menu[todayName] || [];
+            
+            if (todayMenu.length > 0) {
+                todayMenu.forEach(item => {
+                    html += `<li>${item}</li>`;
+                });
+            } else {
+                html += '<li class="no-menu">No menu available</li>';
+            }
         }
         
         html += `</ul>
@@ -263,15 +264,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Tomorrow
         html += `<div class="menu-day">
-            <h3>Tomorrow (${tomorrowName})</h3>
+            <h3>Tomorrow</h3>
             <ul class="menu-items">`;
         
-        if (tomorrowMenu.length > 0) {
-            tomorrowMenu.forEach(item => {
-                html += `<li>${item}</li>`;
-            });
+        if (isTomorrowWeekend) {
+            html += '<li class="closed">Closed</li>';
         } else {
-            html += '<li class="no-menu">No menu available</li>';
+            const tomorrowName = days[tomorrowIndex];
+            const tomorrowMenu = menuData.menu[tomorrowName] || [];
+            
+            if (tomorrowMenu.length > 0) {
+                tomorrowMenu.forEach(item => {
+                    html += `<li>${item}</li>`;
+                });
+            } else {
+                html += '<li class="no-menu">No menu available</li>';
+            }
         }
         
         html += `</ul>
